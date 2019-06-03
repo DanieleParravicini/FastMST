@@ -1,3 +1,4 @@
+#pragma once
 
 struct DatastructuresOnGpu {
 	int* vertices = 0;

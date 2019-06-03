@@ -6,17 +6,18 @@
 #include "CompactGraph.h"
 #include "DataStructureOnGpu.cuh"
 
+
+#include <thrust\device_vector.h>
+#include <thrust\scan.h>
+#include <thrust\sort.h>
+
 int createMask(int start, int width);
 
-void minOutgoingEdge(DatastructuresOnGpu onGPU);
-
-
 void* moveToGpu(void* src, int sizeinBytes);
-
 void* moveToGpu(int* src, int size);
-
 void* moveToGpu(std::vector<int> src);
 
+std::string debug_device_ptr(int* ptr, int items);
 
 int* MarkEdgeSegments(DatastructuresOnGpu onGPU);
 void MarkEdgeSegmentsOnGpu(DatastructuresOnGpu onGPU, int* flags);

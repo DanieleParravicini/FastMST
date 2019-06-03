@@ -1,12 +1,17 @@
 #include "kernel.h"
-#include "cudpp.h"
+
 
 #define BLOCK_SIZE 16
+#define DEBUG
+#define GRID(N, B) ((N + B - 1) / B); 
 
+int grid(int n, int block) {
+	return (n + block - 1) / block;
+}
 
 int main()
 {
-	std::vector<std::vector<int>> weights = { {0,2},{2, 0} };
+	std::vector<std::vector<int>> weights = { {0, 1, 2} ,{2, 0, 0} ,{0, 0, 0} };
 	Graph g(weights, weights.size());
 	std::cout << g.to_string();
 	std::cout << g.toCompact().to_string();
@@ -75,27 +80,44 @@ void mst(DatastructuresOnGpu onGPU) {
 }
 
 
-
+/// on X in position pointed by edgePtr[src] we can obtain the min couple (weight, dest) for that src vertex.
 void minOutgoingEdge(DatastructuresOnGpu onGPU) {
 	cudaError_t status;
 	status = cudaMalloc(&onGPU.X, sizeof(int)*onGPU.numEdges);
 	if (status != cudaError::cudaSuccess)
 		throw status;
 
-	fill << <onGPU.numEdges / BLOCK_SIZE, BLOCK_SIZE >> >(onGPU.X, onGPU.edges, onGPU.numEdges, createMask(0, 22));
-	fill << <onGPU.numEdges / BLOCK_SIZE, BLOCK_SIZE >> >(onGPU.X, onGPU.weights, onGPU.numEdges, createMask(22, 10), 22);
-
+	fill << < grid(onGPU.numEdges , BLOCK_SIZE), BLOCK_SIZE >> >(onGPU.X, onGPU.edges, onGPU.numEdges, createMask(0, 22));
+	#ifdef DEBUG
+		std::cout << "X after fill with destination vertices from bit 0 to 22: " + debug_device_ptr(onGPU.X, onGPU.numEdges);
+	#endif
+	
+	fill << < grid(onGPU.numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU.X, onGPU.weights, onGPU.numEdges, createMask(22, 10), 22);
+	#ifdef DEBUG
+		std::cout << "X after fill with weights from bit 22 to 32: " + debug_device_ptr(onGPU.X, onGPU.numEdges);
+	#endif
 	status = cudaMalloc(&onGPU.F, sizeof(int)*onGPU.numEdges);
 	if (status != cudaError::cudaSuccess)
 		throw status;
-	fill << <onGPU.numEdges / BLOCK_SIZE, BLOCK_SIZE >> >(onGPU.F, 0, onGPU.numEdges);
-	mark_edge_ptr << <onGPU.numVertices / BLOCK_SIZE, BLOCK_SIZE >> >(onGPU.F, onGPU.edgePtr, onGPU.numVertices);
-
+	fill << <grid(onGPU.numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU.F, 0, onGPU.numEdges);
+	mark_edge_ptr << < grid(onGPU.numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU.F, onGPU.edgePtr, onGPU.numVertices);
+	#ifdef DEBUG
+	{
+		std::cout << "F before segmented min scan: " + debug_device_ptr(onGPU.F, onGPU.numEdges);
+	}
+	#endif
 	segmentedMinScanInCuda(onGPU.X, onGPU.X, onGPU.F, onGPU.numEdges);
+	#ifdef DEBUG
+	{
+		std::cout << "F after segmented min scan: " + debug_device_ptr(onGPU.F, onGPU.numEdges);
+		std::cout << "X after segmented min scan: "+ debug_device_ptr(onGPU.X, onGPU.numEdges);
+	}
+	#endif
 }
 
 
-int* MarkEdgeSegments(compactGraphOnGpu onGPU) {
+
+int* MarkEdgeSegments(DatastructuresOnGpu onGPU) {
 	cudaError_t status;
 	int * flags;
 	try {
@@ -112,7 +134,7 @@ int* MarkEdgeSegments(compactGraphOnGpu onGPU) {
 	return flags;
 }
 
-void MarkEdgeSegmentsOnGpu(compactGraphOnGpu onGPU, int* flags) {
-	fill << <onGPU.numEdges / BLOCK_SIZE, BLOCK_SIZE >> >(flags, 0, onGPU.numEdges);
-	mark_edge_ptr << <onGPU.numVertices / BLOCK_SIZE, BLOCK_SIZE >> >(flags, onGPU.edgePtr, onGPU.numVertices);
+void MarkEdgeSegmentsOnGpu(DatastructuresOnGpu onGPU, int* flags) {
+	fill<< < grid(onGPU.numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(flags, 0, onGPU.numEdges);
+	mark_edge_ptr<<< grid(onGPU.numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(flags, onGPU.edgePtr, onGPU.numVertices);
 }
