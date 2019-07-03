@@ -1,49 +1,67 @@
 #include "Graph.h"
-#include <vector>
-#include <string>
-#include "CompactGraph.h"
 
-Graph::Graph(std::vector<std::vector<int>> weights, int numVertex)
-	: weightMatrix(weights)
-{
-	if (weightMatrix.size() != numVertex) {
-		throw std::string("weights dimensions must be (" +
-			std::to_string(numVertex) + "," + std::to_string(numVertex) + ")"
-			);
+void loadGraphFromFile(std::string path, Graph& g) {
+	//this procedure expect to receive data coming from .gr files encoded according to http://users.diag.uniroma1.it/challenge9/format.shtml
+	//basically:
+	//- c line of comment
+	//- p sp <num of vertices> <num of edges>
+	//- a <vertex1> <vertex2> <width>
+
+	std::ifstream aFile;
+	aFile.open(path, std::ios::in);
+	char c;
+
+	int v, u, w;
+	if (aFile.is_open()) {
+		while (!aFile.eof())
+		{
+			aFile >> c;
+			switch (c)
+			{
+			case('c') :
+				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				break;
+			case('p') :
+				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				break;
+			case('a') :
+				aFile >> v;
+				aFile >> u;
+				aFile >> w;
+
+
+
+				boost::add_edge(u, v , w , g);
+				break;
+			default:
+				break;
+			}
+		}
+		aFile.close();
 	}
-	for each (std::vector<int> v in weightMatrix)
-	{
-		if (weightMatrix.size() != numVertex) {
-			throw std::string("weights dimensions must be (" +
-				std::to_string(numVertex) + "," + std::to_string(numVertex) + ")"
-				);
+	else {
+		std::cout << "Error while opening file";
+	}
+
+}
+
+void printForWebgraphviz(Graph &g) {
+	//small graph can be plotted at http://www.webgraphviz.com/
+	WeightMap weights = boost::get(boost::edge_weight, g);
+	std::cout << "graph { " << std::endl;
+	graph_traits<Graph>::vertex_iterator vertex, vertex_end;
+	for (boost::tie(vertex, vertex_end) = boost::vertices(g); vertex != vertex_end; ++vertex) {
+
+		graph_traits<Graph>::adjacency_iterator adj, adj_end;
+
+		for (boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g); adj != adj_end; ++adj) {
+			if (*vertex > *adj)
+				continue;
+			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
+			std::cout << *vertex << " -- " << *adj << "[ label=\"" << boost::get(weights, res.first) << "\"]" << std::endl;
 		}
 	}
+
+	std::cout << std::endl << "}";
 }
 
-
-
-Graph::~Graph() {
-
-}
-
-std::string Graph::to_string( )
-{
-	std::string str;
-	str.append("{\n");
-	for each (std::vector<int> vector in weightMatrix)
-	{
-		for each(int value in vector) {
-			str.append("\t" + std::to_string(value));
-		}
-		str.append("\n");
-	}
-	str.append("}\n");
-	return str;
-}
-
-CompactGraph Graph::toCompact()
-{
-	std::vector<std::vector<int>> copyWeights(weightMatrix);
-	return CompactGraph(copyWeights);
-}

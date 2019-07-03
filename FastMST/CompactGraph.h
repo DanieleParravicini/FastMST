@@ -1,9 +1,10 @@
-#pragma once
-#include <vector>
+#include <string>
+#include "Graph.h"
+
 class CompactGraph
 {
 private:
-	
+
 public:
 	std::vector<int> vertices;
 	std::vector<int> edgePtr;
@@ -12,8 +13,9 @@ public:
 	std::vector<int>weights;
 
 	CompactGraph(std::vector<std::vector<int>> weightMatrix);
+	CompactGraph(Graph &g);
 	~CompactGraph();
 
-	std::string to_string();
+	void print();
 };
 

@@ -1,17 +1,16 @@
 #pragma once
-#include <vector>
-#include <string>
-#include "CompactGraph.h"
 
-class Graph
-{
-private:
-	std::vector<std::vector<int>> weightMatrix;
-public:
-	Graph(std::vector<std::vector<int>> weightMatrix, int numVertex);
-	~Graph();
-	std::string to_string();
-	CompactGraph Graph::toCompact();
-	
-};
+#include <boost\graph\adjacency_list.hpp>
+#include <fstream>
+#include <iostream>
 
+using namespace boost;
+
+typedef property<edge_weight_t, int> EdgeWeightProperty;
+typedef adjacency_list<vecS, vecS, undirectedS, no_property, EdgeWeightProperty> Graph;
+typedef Graph::edge_descriptor Edge;
+typedef property_map<Graph, edge_weight_t>::type WeightMap;
+
+
+void loadGraphFromFile(std::string path, Graph& g);
+void printForWebgraphviz(Graph &g);
