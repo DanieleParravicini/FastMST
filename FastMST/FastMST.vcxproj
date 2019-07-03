@@ -168,22 +168,32 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="kernel.cu" />
-    <CudaCompile Include="utilities.cu" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="CompactGraph.h" />
-    <ClInclude Include="DataStructureOnGpu.cuh" />
+    <ClInclude Include="DataStructureOnGpu.h" />
     <ClInclude Include="Graph.h" />
-    <ClInclude Include="kernel.h" />
-    <ClInclude Include="utilities.cuh" />
+    <ClInclude Include="mst.h" />
+    <ClInclude Include="Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CompactGraph.cpp" />
     <ClCompile Include="Graph.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="mst.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="testGraph\es4.3.p136.gr">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+    </None>
+    <None Include="testGraph\rome99.gr">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+    </None>
+    <None Include="testGraph\USA-road-d.NY.gr">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="Utils.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

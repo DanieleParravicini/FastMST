@@ -1,4 +1,5 @@
 #include "Graph.h"
+#include "Utils.h"
 
 void loadGraphFromFile(std::string path, Graph& g) {
 	//this procedure expect to receive data coming from .gr files encoded according to http://users.diag.uniroma1.it/challenge9/format.shtml
@@ -10,6 +11,8 @@ void loadGraphFromFile(std::string path, Graph& g) {
 	std::ifstream aFile;
 	aFile.open(path, std::ios::in);
 	char c;
+	int mask_v = createMask(0, VERTEX_SIZE);
+	int mask_w = createMask(0, WEIGHT_SIZE);
 
 	int v, u, w;
 	if (aFile.is_open()) {
@@ -31,7 +34,7 @@ void loadGraphFromFile(std::string path, Graph& g) {
 
 
 
-				boost::add_edge(u, v , w , g);
+				boost::add_edge(u & mask_v, v & mask_v, w & mask_w, g);
 				break;
 			default:
 				break;
