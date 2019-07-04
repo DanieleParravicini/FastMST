@@ -1,5 +1,6 @@
 #include "CompactGraph.h"
 
+//TODO: assumed 1 connected component? in other words that node has always a outgoing edge?
 CompactGraph::CompactGraph(std::vector<std::vector<int>> weightMatrix)
 	:vertices(), edgePtr(), edges(), weights()
 {
@@ -25,29 +26,41 @@ CompactGraph::CompactGraph(Graph &g)
 	:vertices(), edgePtr(), edges(), weights()
 {
 	int edge_cnt = 0;
+	std::vector<unsigned int> map;
 	WeightMap weights = boost::get(boost::edge_weight, g);
-
+	//1. build a map by inserting node with at least an exiting arc.
 	graph_traits<Graph>::vertex_iterator vertex, vertex_end;
 	for (boost::tie(vertex, vertex_end) = boost::vertices(g); vertex != vertex_end; ++vertex) {
-
-
-
 
 		graph_traits<Graph>::adjacency_iterator adj, adj_end;
 		boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g);
 		if (adj == adj_end)
 			continue; //this filters out vertex with no edges
+		map.push_back(*vertex);
+	}
 
-		this->vertices.push_back(*vertex);
+	unsigned int v = 0;
+	std::vector<unsigned int>::iterator i;
+	for (boost::tie(vertex, vertex_end) = boost::vertices(g); vertex != vertex_end; ++vertex) {
+		graph_traits<Graph>::adjacency_iterator adj, adj_end;
+		boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g);
+		if (adj == adj_end)
+			continue; //this filters out vertex with no edges
+
+		this->vertices.push_back(v);
 		this->edgePtr.push_back(edge_cnt);
 
 		for (; adj != adj_end; ++adj) {
 			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
-			std::cout << *vertex << " -- " << *adj << "[" << boost::get(weights, res.first) << std::endl;
-			this->edges.push_back(*adj);
-			this->weights.push_back(boost::get(weights, res.first));
+			//std::cout << *vertex << " -- " << *adj << "[" << boost::get(weights, res.first) << std::endl;
+			i = std::find(map.begin(), map.end(), *adj);
+			
+			this->edges.push_back(std::distance(map.begin(), i));
+			int w = boost::get(weights, res.first);
+			this->weights.push_back(w);
 			edge_cnt++;
 		}
+		v++;
 	}
 
 }

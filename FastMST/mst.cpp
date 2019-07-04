@@ -8,7 +8,7 @@ int mst(Graph &g) {
 }
 
 int mst(CompactGraph g) {
-
+	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
 	onGPU.numEdges = g.edges.size();
@@ -17,12 +17,21 @@ int mst(CompactGraph g) {
 
 	try {
 		//1. move data structures to GPU memory
-		onGPU.vertices = (unsigned int*)moveToGpu(g.vertices);
-		onGPU.edgePtr = (unsigned int*)moveToGpu(g.edgePtr);
-		onGPU.edges = (unsigned int*)moveToGpu(g.edges);
-		onGPU.weights = (unsigned int*)moveToGpu(g.weights);
+		//create vertices as large as the number of edges since it will be reused in the reconstruction of the graph.
+		status = cudaMalloc(&onGPU.vertices, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
 
-		cudaError_t status;
+		status = cudaMemcpy(onGPU.vertices, &g.vertices[0], sizeof(unsigned int)*onGPU.numVertices, cudaMemcpyHostToDevice);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+				
+		onGPU.edgePtr	= (unsigned int*)moveToGpu(g.edgePtr);
+		onGPU.edges		= (unsigned int*)moveToGpu(g.edges);
+		onGPU.weights	= (unsigned int*)moveToGpu(g.weights);
+
+		
 		status = cudaMalloc(&onGPU.X, sizeof(unsigned int)*onGPU.numEdges);
 		if (status != cudaError::cudaSuccess)
 			throw status;
@@ -35,9 +44,9 @@ int mst(CompactGraph g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-		status = cudaMalloc(&onGPU.C, sizeof(unsigned int)*onGPU.numEdges);
-		if (status != cudaError::cudaSuccess)
-			throw status;
+		//status = cudaMalloc(&onGPU.C, sizeof(unsigned int)*onGPU.numEdges);
+		//if (status != cudaError::cudaSuccess)
+		//	throw status;
 
 		res = mst(&onGPU);
 
@@ -48,7 +57,6 @@ int mst(CompactGraph g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
-		cudaFree(onGPU.C);
 	}
 	catch (cudaError_t err) {
 		std::cout << err;
@@ -59,7 +67,7 @@ int mst(CompactGraph g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
-		cudaFree(onGPU.C);
+
 		throw err;
 	}
 	catch (thrust::system_error &e)
@@ -76,8 +84,7 @@ int mst(CompactGraph g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
-		cudaFree(onGPU.C);
-
+		throw e;
 	}
 
 	return res;
@@ -86,10 +93,10 @@ int mst(CompactGraph g) {
 int mst(DatastructuresOnGpu *onGPU) {
 	int iter = 0;
 	while (onGPU->numVertices > 1) {
-
+		std::cout <<"[ iter " << iter << " ]"<< std::endl;
 		//print results
 
-#ifdef DEBUG
+#if defined(PEDANTIC) || defined(DEBUG)
 		std::cout << std::endl << "[iter " << iter << "]" << std::endl;
 		std::cout << "Vertices" << std::endl;
 		debug_device_ptr(onGPU->vertices, onGPU->numVertices);
@@ -108,11 +115,20 @@ int mst(DatastructuresOnGpu *onGPU) {
 		minOutgoingEdge(onGPU);
 		//2. Build initial version of successor vector
 		//	 and update the cost of MST.
-		buildSuccessorAndUpdateCosts(onGPU);
+		moveMinWeightsAndSuccessor(onGPU);
+		computeCosts(onGPU);
+		buildSuccessor(onGPU);
+		
 		//3. rebuild compact graph representation for next algorithm iteration.
-		rebuildConsedGraphrepresentation(onGPU);
+		buildSupervertexId(onGPU);
+		orderUVW(onGPU);
+		rebuildEdgeWeights(onGPU);
+		rebuildEdgePtr( onGPU);
+		rebuildVertices( onGPU);
 		//4. update num of vertices, num of edges counter using scan result.
 		iter++;
+		onGPU->numVertices = onGPU->newNumVertices;
+		onGPU->numEdges = onGPU->newNumEdges;
 
 	}
 	return onGPU->cost;

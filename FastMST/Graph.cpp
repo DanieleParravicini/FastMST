@@ -25,6 +25,7 @@ void loadGraphFromFile(std::string path, Graph& g) {
 				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				break;
 			case('p') :
+				//p sp n m where n is number of arcs, m the number of nodes.
 				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				break;
 			case('a') :
@@ -32,9 +33,12 @@ void loadGraphFromFile(std::string path, Graph& g) {
 				aFile >> u;
 				aFile >> w;
 
+				if ((v & mask_v) != v || (u & mask_v) != u || (w & mask_w) != w)
+					std::cout << "Pay attention there exists some vector or weight that has exceeded the representation power consider change bits dedicated."<< std::endl;
 
+				boost::add_edge(v & mask_v, u & mask_v, w & mask_w, g);
 
-				boost::add_edge(u & mask_v, v & mask_v, w & mask_w, g);
+				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				break;
 			default:
 				break;
