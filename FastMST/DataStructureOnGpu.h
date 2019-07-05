@@ -37,14 +37,14 @@ struct DatastructuresOnGpu {
 		
 		for (unsigned int i = 0; i < numVertices-1; i++) {
 			for (unsigned int v = e_ptr[i]; v < e_ptr[i + 1]; v++ ) {
-				std::cout << i << " -- " << e[v] << "[ label=\"" << w[v] << "\"]" << std::endl;
+				std::cout << i << " -- " << e[v] << "[ label=\"" << w[v] << "\"] ;";//<< std::endl;
 			}
 		}
 		for (unsigned int v = e_ptr[numVertices - 1]; v < numEdges; v++) {
-			std::cout << numVertices-1 << " -- " << e[v] << "[ label=\"" << w[v] << "\"]" << std::endl;
+			std::cout << numVertices - 1 << " -- " << e[v] << "[ label=\"" << w[v] << "\"] ;";// << std::endl;
 		}
 
-		std::cout << std::endl << "}" << std::endl;
+		std::cout << std::endl << "};"; //<< std::endl;
 
 		free(e);
 		free(w);

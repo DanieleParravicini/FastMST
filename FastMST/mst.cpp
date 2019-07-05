@@ -1,6 +1,10 @@
 #include "mst.h"
 #include "cuda_profiler_api.h"
 
+
+
+
+
 int mst(Graph &g) {
 
 	CompactGraph c(g);
@@ -45,9 +49,9 @@ int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-		
+		cudaDeviceSynchronize();
 		cudaProfilerStart();
-		res = verifyMst(&onGPU);
+		res = mst(&onGPU);
 		cudaProfilerStop();
 
 		cudaFree(onGPU.vertices);
@@ -70,7 +74,7 @@ int mst(CompactGraph &g) {
 
 		throw err;
 	}
-	catch (thrust::system_error &e)
+	/*catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
 		//got some unspecified launch failure?
@@ -85,7 +89,7 @@ int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		throw e;
-	}
+	}*/
 
 	return res;
 }
@@ -136,6 +140,7 @@ int mst(DatastructuresOnGpu *onGPU) {
 }
 
 int verifyMst(DatastructuresOnGpu* onGPU) {
+	//onGPU->printForWebgraphvizrint();
 
 	if (onGPU->numVertices <= 1)
 		return onGPU->cost;

@@ -481,6 +481,7 @@ void buildSupervertexId(DatastructuresOnGpu* onGPU) {
 	thrust::sort_by_key(s_on_gpu, s_on_gpu + onGPU->numVertices, v_on_gpu);
 	//3. create a flag that contains 1 in position i , when  supervertex[i-1] != supervertex[i] , 0 otherwise.
 	cudaMemset(onGPU->F, 0, onGPU->numVertices * sizeof(unsigned int));
+	cudaDeviceSynchronize();
 	mark_discontinuance <<< grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >>>(onGPU->F, onGPU->S, onGPU->numVertices);
 	cudaDeviceSynchronize();
 

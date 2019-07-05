@@ -32,11 +32,14 @@ void loadGraphFromFile(std::string path, Graph& g) {
 				aFile >> v;
 				aFile >> u;
 				aFile >> w;
+				v--;
+				u--;
 
 				if ((v & mask_v) != v || (u & mask_v) != u || (w & mask_w) != w)
 					std::cout << "Pay attention there exists some vector or weight that has exceeded the representation power consider change bits dedicated."<< std::endl;
 
 				boost::add_edge(v & mask_v, u & mask_v, w & mask_w, g);
+				boost::add_edge(u & mask_v, v & mask_v, w & mask_w, g);
 
 				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				break;
@@ -64,7 +67,7 @@ void printForWebgraphviz(Graph &g) {
 		for (boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g); adj != adj_end; ++adj) {
 			
 			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
-			std::cout << *vertex << " -- " << *adj << "[ label=\"" << boost::get(weights, res.first) << "\"]" << std::endl;
+			std::cout << *vertex << " -- " << *adj << "[ label=\"" << boost::get(weights, res.first) << "\"];";// << std::endl;
 		}
 	}
 
