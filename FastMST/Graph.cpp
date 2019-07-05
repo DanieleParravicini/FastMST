@@ -62,13 +62,38 @@ void printForWebgraphviz(Graph &g) {
 		graph_traits<Graph>::adjacency_iterator adj, adj_end;
 
 		for (boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g); adj != adj_end; ++adj) {
-			if (*vertex > *adj)
-				continue;
+			
 			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
 			std::cout << *vertex << " -- " << *adj << "[ label=\"" << boost::get(weights, res.first) << "\"]" << std::endl;
 		}
 	}
 
-	std::cout << std::endl << "}";
+	std::cout << std::endl << "}" << std::endl;
 }
 
+void toGraph(Graph &g, DatastructuresOnGpu* onGPU) {
+	unsigned int
+		*e = (unsigned int*)malloc(sizeof(unsigned int)* onGPU->numEdges),
+		*w = (unsigned int*)malloc(sizeof(unsigned int)* onGPU->numEdges),
+		*e_ptr = (unsigned int*)malloc(sizeof(unsigned int)* onGPU->numVertices);
+
+	cudaMemcpy(e, onGPU->edges, sizeof(unsigned int) * onGPU->numEdges, cudaMemcpyDeviceToHost);
+	cudaMemcpy(w, onGPU->weights, sizeof(unsigned int) * onGPU->numEdges, cudaMemcpyDeviceToHost);
+	cudaMemcpy(e_ptr, onGPU->edgePtr, sizeof(unsigned int) * onGPU->numVertices, cudaMemcpyDeviceToHost);
+
+
+	for (unsigned int i = 0; i < onGPU->numVertices - 1; i++) {
+		for (unsigned int v = e_ptr[i]; v < e_ptr[i + 1]; v++) {
+			boost::add_edge(i, e[v], w[v], g);
+		}
+	}
+	for (unsigned int v = e_ptr[onGPU->numVertices - 1]; v < onGPU->numEdges; v++) {
+		boost::add_edge(onGPU->numVertices - 1, e[v], w[v], g);
+
+	}
+
+
+	free(e);
+	free(w);
+	free(e_ptr);
+}

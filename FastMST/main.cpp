@@ -52,7 +52,7 @@ int main(int argc, char ** argv) {
 	//loadGraphFromFile("testGraph/es4.3.p136.gr", g1);
 	//create_cord(4096, g1); //--> too easy it takes just 1 iteration.
 	//create_cord_n_iterations(10, g1); //--> 1024 nodes
-	//create_cord_n_iterations(11, g1);
+	//create_cord_n_iterations(12, g1);
 	printForWebgraphviz(g1);
 
 	struct InSpanning {
@@ -68,7 +68,7 @@ int main(int argc, char ** argv) {
 	}
 
 	int cost1 = mst(g1);
- 	if (cost1 != cost) {
+	if (cost1 != cost) {
 		std::cout << "KO: total cost mst kruscal [" << cost << "] != boruvska [" << cost1 << "]" << std::endl;
 		return -1;
 	}

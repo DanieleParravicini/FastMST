@@ -9,6 +9,8 @@
 #include <vector>
 #include <iostream>
 
+#include <boost/graph/kruskal_min_spanning_tree.hpp>
+
 #include <thrust\device_vector.h>
 #include <thrust\scan.h>
 #include <thrust\sort.h>
@@ -18,7 +20,9 @@
 
 int mst(Graph &g);
 
-int mst(CompactGraph g);
+int mst(CompactGraph &g);
 
 int mst(DatastructuresOnGpu* onGPU);
+
+int verifyMst(DatastructuresOnGpu* onGPU);
 

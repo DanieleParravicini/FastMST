@@ -252,7 +252,9 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
 	int pos;
 	int items_per_thread = (n + blockDim.x - 1) / blockDim.x;	
 #ifdef PEDANTIC
-	printf("%d eleem")
+	if (threadIdx.x == 0) {
+		printf("total : %d elements; %d items for each thread", n, items_per_thread);
+	}
 #endif
 	for (int i = 0; i < items_per_thread ; i++) {
 		pos = threadIdx.x * items_per_thread + i;
@@ -261,11 +263,15 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
 		}
 	}
 
-	bool flag;
+	__shared__ bool flag;
 	unsigned int new_s;
 	unsigned int old_s;
-	do{
-		flag = false;
+	do {
+		__syncthreads();
+		if (threadIdx.x == 0) {
+			flag = false;
+		}
+
 		for (int i = 0; i < items_per_thread ; i++) {
 			pos = threadIdx.x*items_per_thread + i;
 			if (pos < n) {
@@ -278,8 +284,9 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
 					A[pos] = new_s;
 				}
 			}
+			__syncthreads();
 		}
-		__syncthreads();
+		
 	} while (flag);
 
 
@@ -316,12 +323,9 @@ __global__ void mark_differentUV(unsigned int* flag, unsigned int* v, unsigned i
 
 __global__ void mark_differentU(unsigned int* flag, unsigned int* v, unsigned int n) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
-	if (idx == 0) {
 
-		flag[0] = 1;
-	}
-	else if (idx < n) {
-		if (v[idx] != v[idx - 1]) {
+	if (idx < n -1) {
+		if (v[idx] != v[idx + 1]) {
 			flag[idx] = 1;
 		}
 
@@ -329,15 +333,26 @@ __global__ void mark_differentU(unsigned int* flag, unsigned int* v, unsigned in
 
 }
 
-struct minus1 : public thrust::unary_function<int, int>
+struct minus1 : public thrust::unary_function<unsigned int, unsigned int>
 {
 	__host__ __device__
-		int operator()(int x)
+		unsigned int operator()(unsigned int x)
 	{
 		// note that using printf in a __device__ function requires
 		// code compiled for a GPU with compute capability 2.0 or
 		// higher (nvcc --arch=sm_20)
 		return x - 1;
+	}
+};
+struct plus1 : public thrust::unary_function<unsigned int, unsigned int>
+{
+	__host__ __device__
+		unsigned int operator()(unsigned int x)
+	{
+		// note that using printf in a __device__ function requires
+		// code compiled for a GPU with compute capability 2.0 or
+		// higher (nvcc --arch=sm_20)
+		return x + 1;
 	}
 };
 
@@ -432,7 +447,7 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 #endif
 	//compute successor
 	//replaceTillFixedPointOld << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->S, onGPU->numVertices);
-	int block_dim = (512 < onGPU->numVertices ? 512 : ((int)(onGPU->numVertices + 16 )/ 17) );
+	int block_dim = (1024 < onGPU->numVertices ? 1024 : ((int)(onGPU->numVertices + 16 )/ 17) );
 	replaceTillFixedPoint <<<1, block_dim , sizeof(unsigned int) * onGPU-> numVertices >>>(onGPU->S, onGPU->numVertices);
 	cudaDeviceSynchronize();
 
@@ -608,6 +623,7 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->S, onGPU->numEdges);
 #endif
 	thrust::stable_sort_by_key(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu);
+	cudaDeviceSynchronize();
 	cudaMemcpy(onGPU->vertices, onGPU->S, sizeof(unsigned int)*onGPU->numEdges, cudaMemcpyDeviceToDevice);
 	cudaDeviceSynchronize();
 #ifdef PEDANTIC
@@ -621,8 +637,13 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 	//								weights[i] < weights[j] 
 	// we have to reorder edges and weights arrays according to index x.
 	//NOTE: nothing has been said about gather values and output possible overlapping.
-	thrust::gather(x_on_gpu, x_on_gpu + onGPU->numEdges, e_on_gpu, e_on_gpu);
-	thrust::gather(x_on_gpu, x_on_gpu + onGPU->numEdges, w_on_gpu, w_on_gpu);
+	cudaMemcpy(onGPU->S, onGPU->edges, sizeof(unsigned int)*onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	cudaDeviceSynchronize();
+	thrust::gather(x_on_gpu, x_on_gpu + onGPU->numEdges, s_on_gpu, e_on_gpu);
+	cudaDeviceSynchronize();
+	cudaMemcpy(onGPU->S, onGPU->weights, sizeof(unsigned int)*onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	cudaDeviceSynchronize();
+	thrust::gather(x_on_gpu, x_on_gpu + onGPU->numEdges, s_on_gpu, w_on_gpu);
 	cudaDeviceSynchronize();
 
 #ifdef PEDANTIC
@@ -658,7 +679,7 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	thrust::inclusive_scan(f_on_gpu, f_on_gpu + onGPU->numEdges, x_on_gpu);
 	//8.c compute the number of edges available in the next iteration by reading the tail of the scan vector result.
 
-	cudaMemcpy(&onGPU->newNumEdges, onGPU->X + onGPU->numEdges - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&onGPU->newNumEdges, onGPU->X + onGPU->numEdges - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost); 
 	//8.d. since index start at 0 subtract 1 from all the indices.
 	thrust::transform(x_on_gpu, x_on_gpu + onGPU->numEdges, x_on_gpu, minus1());
 	cudaDeviceSynchronize();
@@ -706,11 +727,14 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 	//9.b perform a inclusive scan on such a flag in order to obtain offset in the vertex array
 	thrust::inclusive_scan(f_on_gpu, f_on_gpu + onGPU->numEdges, s_on_gpu);
 	//9.c obtain vertex number by reading from the tail of S
+	//and then summing 1
 	cudaMemcpy(&onGPU->newNumVertices, onGPU->S + onGPU->numEdges - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-	//9.d rescale of 1 unit since flag[0] = 1 but its position has to be 0
-	thrust::transform(s_on_gpu, s_on_gpu + onGPU->numEdges, s_on_gpu, minus1());
 	cudaDeviceSynchronize();
-	//9.e Build edge ptr:
+	onGPU->newNumVertices++;
+	
+	//9.d Build edge ptr:
+	//when the source vector change pick the number of relevant edges till the previous vertex and then increment by one 
+	//9.d.1
 	//if on x we have the counted the number of edges that will be preserved
 	//   on f we have the stencil that indicate two different consequence sources
 	//   on s we have the scan result on the stencil.
@@ -725,6 +749,11 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 
 	thrust::scatter_if(x_on_gpu, x_on_gpu + onGPU->numEdges, s_on_gpu, f_on_gpu, eptr_on_gpu);
 	cudaDeviceSynchronize();
+	//9.d.2.
+	//sum 1 to all to pick up the next
+	thrust::transform(eptr_on_gpu, eptr_on_gpu + onGPU->numEdges, eptr_on_gpu, plus1());
+	cudaDeviceSynchronize();
+	//set edgeptr of 0 equal to 0.
 	cudaMemset(onGPU->edgePtr, 0, sizeof(unsigned int));
 
 #ifdef PEDANTIC

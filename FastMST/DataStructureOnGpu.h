@@ -1,5 +1,7 @@
 #pragma once
 #include <iostream>
+
+
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -43,6 +45,7 @@ struct DatastructuresOnGpu {
 		}
 
 		std::cout << std::endl << "}" << std::endl;
+
 		free(e);
 		free(w);
 		free(e_ptr);

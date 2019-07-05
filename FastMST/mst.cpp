@@ -1,4 +1,5 @@
 #include "mst.h"
+#include "cuda_profiler_api.h"
 
 int mst(Graph &g) {
 
@@ -7,7 +8,7 @@ int mst(Graph &g) {
 
 }
 
-int mst(CompactGraph g) {
+int mst(CompactGraph &g) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
@@ -44,11 +45,10 @@ int mst(CompactGraph g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-		//status = cudaMalloc(&onGPU.C, sizeof(unsigned int)*onGPU.numEdges);
-		//if (status != cudaError::cudaSuccess)
-		//	throw status;
-
-		res = mst(&onGPU);
+		
+		cudaProfilerStart();
+		res = verifyMst(&onGPU);
+		cudaProfilerStop();
 
 		cudaFree(onGPU.vertices);
 		cudaFree(onGPU.edgePtr);
@@ -108,6 +108,7 @@ int mst(DatastructuresOnGpu *onGPU) {
 		debug_device_ptr(onGPU->weights, onGPU->numEdges);
 
 		onGPU->printForWebgraphvizrint();
+
 #endif
 
 		//1. for each vertex we have to find 
@@ -134,3 +135,73 @@ int mst(DatastructuresOnGpu *onGPU) {
 	return onGPU->cost;
 }
 
+int verifyMst(DatastructuresOnGpu* onGPU) {
+
+	if (onGPU->numVertices <= 1)
+		return onGPU->cost;
+
+#if defined(PEDANTIC) || defined(DEBUG)
+		//print results
+		std::cout << "Vertices" << std::endl;
+		debug_device_ptr(onGPU->vertices, onGPU->numVertices);
+		std::cout << "Edge ptr" << std::endl;
+		debug_device_ptr(onGPU->edgePtr, onGPU->numVertices);
+		std::cout << "Edges" << std::endl;
+		debug_device_ptr(onGPU->edges, onGPU->numEdges);
+		std::cout << "weights" << std::endl;
+		debug_device_ptr(onGPU->weights, onGPU->numEdges);
+
+		onGPU->printForWebgraphvizrint();
+#endif
+
+		int curr_cost = onGPU->cost;
+		int currnumVertices = onGPU->numVertices;
+
+		Graph g;
+		toGraph(g, onGPU);
+		struct InSpanning {
+			std::set<Edge> edges;
+			bool operator()(Edge e) const { return edges.count(e) > 0; }
+		} spanning;
+
+		boost::kruskal_minimum_spanning_tree(g, std::inserter(spanning.edges, spanning.edges.end()));
+
+		int costSubProblem = 0;
+		for (Edge e : spanning.edges) {
+			costSubProblem += boost::get(boost::edge_weight, g, e);
+		}
+
+		//1. for each vertex we have to find 
+		//   the min cost outgoing edge
+		minOutgoingEdge(onGPU);
+		//2. Build initial version of successor vector
+		//	 and update the cost of MST.
+		moveMinWeightsAndSuccessor(onGPU);
+		computeCosts(onGPU);
+		buildSuccessor(onGPU);
+
+		//3. rebuild compact graph representation for next algorithm iteration.
+		buildSupervertexId(onGPU);
+		orderUVW(onGPU);
+		rebuildEdgeWeights(onGPU);
+		rebuildEdgePtr(onGPU);
+		rebuildVertices(onGPU);
+		//4. update num of vertices, num of edges counter using scan result.
+		
+		//5. solve sub problem mst
+		onGPU->numVertices = onGPU->newNumVertices;
+		onGPU->numEdges = onGPU->newNumEdges;
+		
+
+		verifyMst(onGPU);
+
+		if (onGPU->cost - curr_cost == costSubProblem) {
+			std::cout << "[ #vertices " << currnumVertices << " ] OK cost:" << costSubProblem << std::endl;
+		}
+		else {
+			std::cout << "[ #vertices " << currnumVertices << " ] KO" << "[ boruvska "<< onGPU->cost - curr_cost <<"] [ golden model "<< costSubProblem <<"]" << std::endl;
+		}
+
+
+	return onGPU->cost;
+}

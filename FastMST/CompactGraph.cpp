@@ -25,7 +25,7 @@ CompactGraph::CompactGraph(std::vector<std::vector<int>> weightMatrix)
 CompactGraph::CompactGraph(Graph &g)
 	:vertices(), edgePtr(), edges(), weights()
 {
-	int edge_cnt = 0;
+	
 	std::vector<unsigned int> map;
 	WeightMap weights = boost::get(boost::edge_weight, g);
 	//1. build a map by inserting node with at least an exiting arc.
@@ -40,6 +40,8 @@ CompactGraph::CompactGraph(Graph &g)
 	}
 
 	unsigned int v = 0;
+	int edge_cnt = 0;
+
 	std::vector<unsigned int>::iterator i;
 	for (boost::tie(vertex, vertex_end) = boost::vertices(g); vertex != vertex_end; ++vertex) {
 		graph_traits<Graph>::adjacency_iterator adj, adj_end;
@@ -52,6 +54,8 @@ CompactGraph::CompactGraph(Graph &g)
 
 		for (; adj != adj_end; ++adj) {
 			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
+			std::pair<Edge, bool> res2 = boost::edge(*adj, *vertex, g);
+			assert(!res.second || res2.second);
 			//std::cout << *vertex << " -- " << *adj << "[" << boost::get(weights, res.first) << std::endl;
 			i = std::find(map.begin(), map.end(), *adj);
 			

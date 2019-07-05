@@ -13,7 +13,7 @@
 #define WEIGHT_SIZE 14
 #define VERTEX_SIZE 18
 //#define DEBUG
-//#define PEDANTIC
+#define PEDANTIC
 
 __host__ __device__ unsigned int createMask(int start, int width);
 
