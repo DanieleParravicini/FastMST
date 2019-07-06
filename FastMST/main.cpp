@@ -47,28 +47,24 @@ int create_cord_n_iterations(unsigned int num_iterations,  Graph& g, int last_us
 int main(int argc, char ** argv) {
 
 	Graph g1;
-	g1.clear();
-	//loadGraphFromFile("testGraph/USA-road-d.NY.gr", g1);
+	loadGraphFromFile("testGraph/USA-road-d.NY.gr", g1);
 	//loadGraphFromFile("testGraph/rome99.gr", g1);
 	//loadGraphFromFile("testGraph/es4.3.p136.gr", g1);
 	//create_cord(4096, g1); //--> too easy it takes just 1 iteration.
-	create_cord_n_iterations(9, g1); //--> 1024 nodes
+	//create_cord_n_iterations(9, g1); //--> 1024 nodes
 	//create_cord_n_iterations(12, g1);
 	printForWebgraphviz(g1);
 
 
-	struct InSpanning {
-		std::set<Edge> edges;
-		bool operator()(Edge e) const { return edges.count(e) > 0; }
-	} spanning;
 
-	boost::kruskal_minimum_spanning_tree(g1, std::inserter(spanning.edges, spanning.edges.end()));
+	std::set<Edge> edges;
+		
+	boost::kruskal_minimum_spanning_tree(g1, std::inserter(edges, edges.end()));
 
 	int cost = 0;
-	for (Edge e : spanning.edges) {
+	for (Edge e : edges) {
 		cost += boost::get(boost::edge_weight, g1, e);
 	}
-
 
 
 	int cost1 = mst(g1);

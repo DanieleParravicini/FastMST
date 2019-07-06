@@ -49,9 +49,10 @@ int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-		cudaDeviceSynchronize();
+
+
 		cudaProfilerStart();
-		res = mst(&onGPU);
+		res = verifyMst(&onGPU);
 		cudaProfilerStop();
 
 		cudaFree(onGPU.vertices);
@@ -74,7 +75,7 @@ int mst(CompactGraph &g) {
 
 		throw err;
 	}
-	/*catch (thrust::system_error &e)
+	catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
 		//got some unspecified launch failure?
@@ -89,7 +90,7 @@ int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		throw e;
-	}*/
+	}
 
 	return res;
 }
@@ -164,15 +165,14 @@ int verifyMst(DatastructuresOnGpu* onGPU) {
 
 		Graph g;
 		toGraph(g, onGPU);
-		struct InSpanning {
-			std::set<Edge> edges;
-			bool operator()(Edge e) const { return edges.count(e) > 0; }
-		} spanning;
 
-		boost::kruskal_minimum_spanning_tree(g, std::inserter(spanning.edges, spanning.edges.end()));
+		
+		std::set<Edge> edges;
+	
+		boost::kruskal_minimum_spanning_tree(g, std::inserter(edges, edges.end()));
 
 		int costSubProblem = 0;
-		for (Edge e : spanning.edges) {
+		for (Edge e : edges) {
 			costSubProblem += boost::get(boost::edge_weight, g, e);
 		}
 

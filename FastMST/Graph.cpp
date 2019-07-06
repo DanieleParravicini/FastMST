@@ -25,24 +25,35 @@ void loadGraphFromFile(std::string path, Graph& g) {
 				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				break;
 			case('p') :
-				//p sp n m where n is number of arcs, m the number of nodes.
+				//p sp n m where n is number of nodes, m the number of arcs.
+				aFile.ignore(std::numeric_limits<std::streamsize>::max(), ' ');
+				aFile.ignore(std::numeric_limits<std::streamsize>::max(), ' ');
+				aFile >> v;
+				g = Graph(v);
 				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				
 				break;
-			case('a') :
+			case('a') : {
 				aFile >> v;
 				aFile >> u;
 				aFile >> w;
 				v--;
 				u--;
 
-				if ((v & mask_v) != v || (u & mask_v) != u || (w & mask_w) != w)
-					std::cout << "Pay attention there exists some vector or weight that has exceeded the representation power consider change bits dedicated."<< std::endl;
-
-				boost::add_edge(v & mask_v, u & mask_v, w & mask_w, g);
-				boost::add_edge(u & mask_v, v & mask_v, w & mask_w, g);
-
+				if ((v & mask_v) != v || (u & mask_v) != u || (w & mask_w) != w) {
+					std::cout << "Pay attention there exists some vector or weight that has exceeded the representation power consider change bits dedicated." << std::endl;
+				}
+				//the Undirected graph already conside u--w-->v and v--w-->u at the same way returning also the same weights.
+				//no need to insert the edge if it is already thereS
+				std::pair<Edge, bool> already_inserted = boost::edge(v, u, g);
+				if (!already_inserted.second) {
+					boost::add_edge(v & mask_v, u & mask_v, w & mask_w, g);
+					//boost::add_edge(u & mask_v, v & mask_v, w & mask_w, g);
+				}
+				
 				aFile.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 				break;
+			}
 			default:
 				break;
 			}
@@ -80,9 +91,9 @@ void toGraph(Graph &g, DatastructuresOnGpu* onGPU) {
 		*w = (unsigned int*)malloc(sizeof(unsigned int)* onGPU->numEdges),
 		*e_ptr = (unsigned int*)malloc(sizeof(unsigned int)* onGPU->numVertices);
 
-	cudaMemcpy(e, onGPU->edges, sizeof(unsigned int) * onGPU->numEdges, cudaMemcpyDeviceToHost);
-	cudaMemcpy(w, onGPU->weights, sizeof(unsigned int) * onGPU->numEdges, cudaMemcpyDeviceToHost);
-	cudaMemcpy(e_ptr, onGPU->edgePtr, sizeof(unsigned int) * onGPU->numVertices, cudaMemcpyDeviceToHost);
+	cudaMemcpy(e,		onGPU->edges, sizeof(unsigned int) * onGPU->numEdges, cudaMemcpyDeviceToHost);
+	cudaMemcpy(w,		onGPU->weights, sizeof(unsigned int) * onGPU->numEdges, cudaMemcpyDeviceToHost);
+	cudaMemcpy(e_ptr,	onGPU->edgePtr, sizeof(unsigned int) * onGPU->numVertices, cudaMemcpyDeviceToHost);
 
 
 	for (unsigned int i = 0; i < onGPU->numVertices - 1; i++) {

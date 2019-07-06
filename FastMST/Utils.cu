@@ -338,9 +338,7 @@ struct minus1 : public thrust::unary_function<unsigned int, unsigned int>
 	__host__ __device__
 		unsigned int operator()(unsigned int x)
 	{
-		// note that using printf in a __device__ function requires
-		// code compiled for a GPU with compute capability 2.0 or
-		// higher (nvcc --arch=sm_20)
+
 		return x - 1;
 	}
 };
@@ -349,9 +347,7 @@ struct plus1 : public thrust::unary_function<unsigned int, unsigned int>
 	__host__ __device__
 		unsigned int operator()(unsigned int x)
 	{
-		// note that using printf in a __device__ function requires
-		// code compiled for a GPU with compute capability 2.0 or
-		// higher (nvcc --arch=sm_20)
+		
 		return x + 1;
 	}
 };
@@ -362,6 +358,7 @@ void minOutgoingEdge(DatastructuresOnGpu* onGPU) {
 	fill << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->X, onGPU->edges	 , 
 		onGPU->numEdges, createMask(0, VERTEX_SIZE));
 	//or cudaMemcpy(onGPU->X, onGPU->edges, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	cudaDeviceSynchronize();
 	fill << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->X, onGPU->weights,
 		onGPU->numEdges, createMask(VERTEX_SIZE, WEIGHT_SIZE), VERTEX_SIZE);
 	
@@ -371,6 +368,7 @@ void minOutgoingEdge(DatastructuresOnGpu* onGPU) {
 	#endif
 
 	cudaMemset(onGPU->F, 0, sizeof(unsigned int) * onGPU->numEdges);
+	cudaDeviceSynchronize();
 	mark_edge_ptr << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->edgePtr, onGPU->numVertices);
 	cudaDeviceSynchronize();
 	segmentedMinScanInCuda(onGPU->X, onGPU->X, onGPU->F, onGPU->numEdges);
@@ -447,10 +445,13 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 #endif
 	//compute successor
 	//replaceTillFixedPointOld << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->S, onGPU->numVertices);
+	std::cout << "Successor after fixed point: " << std::endl;
+	debug_device_ptr(onGPU->S, onGPU->numVertices);
 	int block_dim = (1024 < onGPU->numVertices ? 1024 : ((int)(onGPU->numVertices + 16 )/ 17) );
 	replaceTillFixedPoint <<<1, block_dim , sizeof(unsigned int) * onGPU-> numVertices >>>(onGPU->S, onGPU->numVertices);
 	cudaDeviceSynchronize();
-
+	std::cout << "Successor after fixed point: " << std::endl;
+	debug_device_ptr(onGPU->S, onGPU->numVertices);
 #ifdef PEDANTIC
 	std::cout << "Successor after fixed point: " << std::endl;
 	debug_device_ptr(onGPU->S, onGPU->numVertices);
@@ -696,11 +697,14 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	//8.d. move weights
 	//since input data and output can't reside on the same memory area we move them temporarily to S
 	cudaMemcpy(onGPU->S, onGPU->weights, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	cudaDeviceSynchronize();
 	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, w_on_gpu);
 	//8.e. move destination vertices
 	//since input data and output can't reside on the same memory area we mve them temporarily to S
 	cudaMemcpy(onGPU->S, onGPU->edges, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	cudaDeviceSynchronize();
 	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, e_on_gpu);
+	cudaDeviceSynchronize();
 
 #ifdef PEDANTIC
 	std::cout << "new edges (" << onGPU->newNumEdges << ") :" << std::endl;
@@ -714,7 +718,7 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 	thrust::device_ptr<unsigned int>
 		s_on_gpu(onGPU->S), v_on_gpu(onGPU->vertices),
-		f_on_gpu(onGPU->F), e_on_gpu(onGPU->edges),
+		f_on_gpu(onGPU->F),
 		w_on_gpu(onGPU->weights), eptr_on_gpu(onGPU->edgePtr),
 		x_on_gpu(onGPU->X);
 	//exploit data already computed for Edges in X number of useful edges
@@ -725,7 +729,7 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 	cudaDeviceSynchronize();
 	mark_differentU << <grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->vertices, onGPU->numEdges);
 	cudaDeviceSynchronize();
-	//9.b perform a inclusive scan on such a flag in order to obtain offset in the vertex array
+	//9.b perform a inclusive scan on such a flag in order to obtain offset in the edge ptr
 	thrust::inclusive_scan(f_on_gpu, f_on_gpu + onGPU->numEdges, s_on_gpu);
 	//9.c obtain vertex number by reading from the tail of S
 	//and then summing 1
@@ -752,11 +756,11 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 	cudaDeviceSynchronize();
 	//9.d.2.
 	//sum 1 to all to pick up the next
-	thrust::transform(eptr_on_gpu, eptr_on_gpu + onGPU->numEdges, eptr_on_gpu, plus1());
+	thrust::transform(eptr_on_gpu, eptr_on_gpu + onGPU->newNumVertices, eptr_on_gpu, plus1());
 	cudaDeviceSynchronize();
 	//set edgeptr of 0 equal to 0.
 	cudaMemset(onGPU->edgePtr, 0, sizeof(unsigned int));
-
+	cudaDeviceSynchronize();
 #ifdef PEDANTIC
 	std::cout << "new edge ptr" << std::endl;
 	debug_device_ptr(onGPU->edgePtr, onGPU->newNumVertices);
@@ -768,36 +772,14 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 
 void rebuildVertices(DatastructuresOnGpu* onGPU) {
 	thrust::device_ptr<unsigned int>
-		s_on_gpu(onGPU->S), v_on_gpu(onGPU->vertices),
-		f_on_gpu(onGPU->F), e_on_gpu(onGPU->edges),
-		w_on_gpu(onGPU->weights), eptr_on_gpu(onGPU->edgePtr),
+		v_on_gpu(onGPU->vertices),
 		x_on_gpu(onGPU->X);
 
-	//10. create vertex vector
-	//10.a find discontinuance in source vertex
-	//    since there was a collapsing in the previous step there would always be a edge for each supervertex.
-	//10.b perform a inclusive scan on such a flag in order to obtain offset in the vertex array
-	//10.c obtain vertex number
-	//10.d rescale of 1 unit since flag[0] = 1 but its position has to be 0
-	//already performed by previous steps.
-	// F will mark discontinuance
-	// S will contain the scan result of F
-	// v will contain vertex source.
-	//10.e move vertex: only elements identified by a stencil =1 are moved according to the offset already computed
-#ifdef PEDANTIC
-	std::cout << "new vertices :" << std::endl;
-	std::cout << "vertices" << std::endl;
-	debug_device_ptr(onGPU->vertices, onGPU->numEdges);
-	std::cout << "relevant edges" << std::endl;
-	debug_device_ptr(onGPU->F, onGPU->numEdges);
-	std::cout << "position" << std::endl;
-	debug_device_ptr(onGPU->S, onGPU->numEdges);
-#endif
-	//since map and result can't overlap move temporarily vertices on x
-	cudaMemcpy(onGPU->X, onGPU->vertices, sizeof(unsigned int)*onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	
+	fill<<< grid(onGPU->newNumVertices, BLOCK_SIZE), BLOCK_SIZE>>>(onGPU->X, 1, onGPU->newNumVertices);
 	cudaDeviceSynchronize();
-	//
-	thrust::scatter_if(x_on_gpu, x_on_gpu + onGPU->numEdges, s_on_gpu, f_on_gpu,  v_on_gpu);
+
+	thrust::exclusive_scan(x_on_gpu, x_on_gpu + onGPU->newNumVertices, v_on_gpu);
 	cudaDeviceSynchronize();
 
 #ifdef PEDANTIC
