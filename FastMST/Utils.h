@@ -10,8 +10,8 @@
 #include <thrust\sort.h>
 
 #define BLOCK_SIZE  16
-#define WEIGHT_SIZE 14
-#define VERTEX_SIZE 18
+#define WEIGHT_SIZE 13
+#define VERTEX_SIZE 19
 //#define DEBUG
 //#define PEDANTIC
 

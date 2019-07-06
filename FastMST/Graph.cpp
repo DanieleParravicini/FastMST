@@ -66,20 +66,67 @@ void loadGraphFromFile(std::string path, Graph& g) {
 
 }
 
+void generateRandom(int nr_vertices, Graph& g) {
+	boost::minstd_rand gen;
+	int max_weight = 1000;
+
+	// https://valelab4.ucsf.edu/svn/3rdpartypublic/boost/libs/graph_parallel/doc/html/rmat_generator.html
+	// 
+	int nr_edges = nr_vertices * 4;
+	g = Graph(RMATGen(gen, nr_vertices,nr_edges, 0.57, 0.19, 0.19, 0.05), RMATGen(), nr_vertices);
+	//
+	//g = Graph(ERGen(gen, nr_vertices, 0.25), ERGen(), nr_vertices);
+	std::pair<Graph::edge_iterator, Graph::edge_iterator> iterators = boost::edges(g);
+
+	Graph::edge_iterator next;
+	//eliminate self loops
+
+	
+	boost::remove_edge_if([&](Edge e) {
+		return e.m_source == e.m_target;
+	}, g);
+
+	iterators = boost::edges(g);
+	//the generators by default produces edges with weights = 0.
+	//add weights
+	for (; iterators.first != iterators.second; ++iterators.first) {
+		int w; 
+		//since the generator sometimes produces parralle arc to avoid that they experience different weights
+		//first look for weights and if found != 0 leave that cost.
+		std::pair<Edge, bool> already_inserted = boost::edge(iterators.first->m_source, iterators.first->m_target, g);
+		assert(already_inserted.second);
+		
+		w = boost::get(boost::edge_weight_t(), g, already_inserted.first);
+		if (w == 0) {
+			w = (rand() % max_weight) +1;
+		}
+		boost::put(boost::edge_weight_t(), g, *iterators.first, w);
+	}
+
+	
+	//make sure that al the elements are connected
+	for (int i = 0; i < nr_vertices - 2; i++) {
+
+		int w = max_weight;
+		std::pair<Edge, bool> already_inserted = boost::edge(i, i+1, g);
+
+		if (!already_inserted.second) {
+			boost::add_edge(i , i+1 , w , g);
+			
+		}
+	}
+}
+
 void printForWebgraphviz(Graph &g) {
 	//small graph can be plotted at http://www.webgraphviz.com/
 	WeightMap weights = boost::get(boost::edge_weight, g);
 	std::cout << "graph { " << std::endl;
-	graph_traits<Graph>::vertex_iterator vertex, vertex_end;
-	for (boost::tie(vertex, vertex_end) = boost::vertices(g); vertex != vertex_end; ++vertex) {
-
-		graph_traits<Graph>::adjacency_iterator adj, adj_end;
-
-		for (boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g); adj != adj_end; ++adj) {
-			
-			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
-			std::cout << *vertex << " -- " << *adj << "[ label=\"" << boost::get(weights, res.first) << "\"];";// << std::endl;
-		}
+	std::pair<Graph::edge_iterator, Graph::edge_iterator> iterators = boost::edges(g);
+	//substitute
+	for (; iterators.first != iterators.second; ++iterators.first) {
+	
+			std::cout << iterators.first->m_source << " -- " << iterators.first->m_target << "[ label=\"" << boost::get(boost::edge_weight_t(), g, *iterators.first) << "\"];";// << std::endl;
+		
 	}
 
 	std::cout << std::endl << "}" << std::endl;

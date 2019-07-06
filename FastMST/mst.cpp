@@ -49,11 +49,22 @@ int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
+		cudaEvent_t start, stop;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
 
 
 		cudaProfilerStart();
-		res = verifyMst(&onGPU);
+		cudaEventRecord(start);
+		res = mst(&onGPU);
+		cudaEventRecord(stop);
 		cudaProfilerStop();
+		
+		cudaEventSynchronize(stop);
+		float milliseconds = 0;
+		cudaEventElapsedTime(&milliseconds, start, stop);
+
+		std::cout << "Time gpu occupied: "<< milliseconds << " [ms]"<< std::endl;
 
 		cudaFree(onGPU.vertices);
 		cudaFree(onGPU.edgePtr);

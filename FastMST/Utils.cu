@@ -445,13 +445,11 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 #endif
 	//compute successor
 	//replaceTillFixedPointOld << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->S, onGPU->numVertices);
-	std::cout << "Successor after fixed point: " << std::endl;
-	debug_device_ptr(onGPU->S, onGPU->numVertices);
+
 	int block_dim = (1024 < onGPU->numVertices ? 1024 : ((int)(onGPU->numVertices + 16 )/ 17) );
 	replaceTillFixedPoint <<<1, block_dim , sizeof(unsigned int) * onGPU-> numVertices >>>(onGPU->S, onGPU->numVertices);
 	cudaDeviceSynchronize();
-	std::cout << "Successor after fixed point: " << std::endl;
-	debug_device_ptr(onGPU->S, onGPU->numVertices);
+
 #ifdef PEDANTIC
 	std::cout << "Successor after fixed point: " << std::endl;
 	debug_device_ptr(onGPU->S, onGPU->numVertices);
