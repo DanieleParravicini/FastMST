@@ -52,19 +52,19 @@ int main(int argc, char ** argv) {
 	
 		Graph g1;
 		//loadGraphFromFile("testGraph/USA-road-d.NY.gr", g1);
-		//loadGraphFromFile("testGraph/rome99.gr", g1);
+		loadGraphFromFile("testGraph/rome99.gr", g1);
 		//loadGraphFromFile("testGraph/es4.3.p136.gr", g1);
 		//create_cord(4096, g1); //--> too easy it takes just 1 iteration.
 		//create_cord_n_iterations(9, g1); //--> 1024 nodes
 		//create_cord_n_iterations(12, g1);
-		generateRandom(std::pow(2,12), g1);
+		//generateRandom(std::pow(2,12), std::pow(2,12)*4 , g1);
 
 
-		printForWebgraphviz(g1);
+		//printForWebgraphviz(g1);
 
 
 
-		std::set<Edge> edges;
+		/**std::set<Edge> edges;
 
 		clock_t begin = clock();
 
@@ -77,19 +77,14 @@ int main(int argc, char ** argv) {
 		int cost = 0;
 		for (Edge e : edges) {
 			cost += boost::get(boost::edge_weight, g1, e);
-		}
+		}*/
 
 
 		int cost1 = mst(g1);
-		if (cost1 != cost) {
-			std::cout << "KO: total cost mst kruscal [" << cost << "] != boruvska [" << cost1 << "]" << std::endl;
-			return -1;
-		}
-		else {
-			std::cout << "OK! mst cost: " << cost << std::endl;
-			return 0;
-		}
-	
+		
+		std::cout << "Cost mst boruvska [" << cost1 << "]" << std::endl;
+		return -1;
+		
 	
 }
 
