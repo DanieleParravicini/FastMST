@@ -24,5 +24,9 @@ int mst(CompactGraph &g);
 
 int mst(DatastructuresOnGpu* onGPU);
 
+int verifyMst(Graph &g);
+
+int verifyMst(CompactGraph &g);
+
 int verifyMst(DatastructuresOnGpu* onGPU);
 

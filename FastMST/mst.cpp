@@ -31,12 +31,10 @@ int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-				
 		onGPU.edgePtr	= (unsigned int*)moveToGpu(g.edgePtr);
 		onGPU.edges		= (unsigned int*)moveToGpu(g.edges);
 		onGPU.weights	= (unsigned int*)moveToGpu(g.weights);
 
-		
 		status = cudaMalloc(&onGPU.X, sizeof(unsigned int)*onGPU.numEdges);
 		if (status != cudaError::cudaSuccess)
 			throw status;
@@ -56,7 +54,9 @@ int mst(CompactGraph &g) {
 
 		cudaProfilerStart();
 		cudaEventRecord(start);
+
 		res = mst(&onGPU);
+
 		cudaEventRecord(stop);
 		cudaProfilerStop();
 		
@@ -149,6 +149,107 @@ int mst(DatastructuresOnGpu *onGPU) {
 
 	}
 	return onGPU->cost;
+}
+
+int verifyMst(Graph &g) {
+
+	CompactGraph c(g);
+	return mst(c);
+
+}
+
+int verifyMst(CompactGraph &g) {
+	cudaError_t status;
+	DatastructuresOnGpu onGPU;
+	onGPU.cost = 0;
+	onGPU.numEdges = g.edges.size();
+	onGPU.numVertices = g.vertices.size();
+	int res = -1;
+
+	try {
+		//1. move data structures to GPU memory
+		//create vertices as large as the number of edges since it will be reused in the reconstruction of the graph.
+		status = cudaMalloc(&onGPU.vertices, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		status = cudaMemcpy(onGPU.vertices, &g.vertices[0], sizeof(unsigned int)*onGPU.numVertices, cudaMemcpyHostToDevice);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		onGPU.edgePtr = (unsigned int*)moveToGpu(g.edgePtr);
+		onGPU.edges = (unsigned int*)moveToGpu(g.edges);
+		onGPU.weights = (unsigned int*)moveToGpu(g.weights);
+
+		status = cudaMalloc(&onGPU.X, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		status = cudaMalloc(&onGPU.F, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		status = cudaMalloc(&onGPU.S, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		cudaEvent_t start, stop;
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+
+		cudaProfilerStart();
+		cudaEventRecord(start);
+
+		res = verifyMst(&onGPU);
+
+		cudaEventRecord(stop);
+		cudaProfilerStop();
+
+		cudaEventSynchronize(stop);
+		float milliseconds = 0;
+		cudaEventElapsedTime(&milliseconds, start, stop);
+
+		std::cout << "Time gpu occupied: " << milliseconds << " [ms]" << std::endl;
+
+		cudaFree(onGPU.vertices);
+		cudaFree(onGPU.edgePtr);
+		cudaFree(onGPU.weights);
+		cudaFree(onGPU.edges);
+		cudaFree(onGPU.X);
+		cudaFree(onGPU.F);
+		cudaFree(onGPU.S);
+	}
+	catch (cudaError_t err) {
+		std::cout << err;
+		cudaFree(onGPU.vertices);
+		cudaFree(onGPU.edgePtr);
+		cudaFree(onGPU.weights);
+		cudaFree(onGPU.edges);
+		cudaFree(onGPU.X);
+		cudaFree(onGPU.F);
+		cudaFree(onGPU.S);
+
+		throw err;
+	}
+	catch (thrust::system_error &e)
+	{
+		std::cerr << "CUDA error:" << e.what() << std::endl;
+		//got some unspecified launch failure?
+		//cause could be a watchdog inserted by windows OS
+		// for additional details and workaround follow the next link:
+		//https://docs.nvidia.com/gameworks/content/developertools/desktop/timeout_detection_recovery.htm
+		cudaFree(onGPU.vertices);
+		cudaFree(onGPU.edgePtr);
+		cudaFree(onGPU.weights);
+		cudaFree(onGPU.edges);
+		cudaFree(onGPU.X);
+		cudaFree(onGPU.F);
+		cudaFree(onGPU.S);
+		throw e;
+	}
+
+	return res;
 }
 
 int verifyMst(DatastructuresOnGpu* onGPU) {
