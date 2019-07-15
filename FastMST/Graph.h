@@ -27,6 +27,8 @@ typedef boost::erdos_renyi_iterator<boost::minstd_rand, Graph> ERGen;
 
 
 void loadGraphFromFile(std::string path, Graph& g);
-void generateRandom(int nr_vertices, Graph& g);
+void writeGraphToFile(Graph& g, std::ostream& out);
+
+void generateRandom(int nr_vertices, int nr_edges, Graph& g);
 void printForWebgraphviz(Graph &g);
 void toGraph(Graph &g, DatastructuresOnGpu* onGPU);

@@ -13,7 +13,7 @@ void loadGraphFromFile(std::string path, Graph& g) {
 	char c;
 	int mask_v = createMask(0, VERTEX_SIZE);
 	int mask_w = createMask(0, WEIGHT_SIZE);
-
+	bool flag_w = false, flag_v = false;
 	int v, u, w;
 	if (aFile.is_open()) {
 		while (!aFile.eof())
@@ -40,8 +40,11 @@ void loadGraphFromFile(std::string path, Graph& g) {
 				v--;
 				u--;
 
-				if ((v & mask_v) != v || (u & mask_v) != u || (w & mask_w) != w) {
-					std::cout << "Pay attention there exists some vector or weight that has exceeded the representation power consider change bits dedicated." << std::endl;
+				if ((v & mask_v) != v || (u & mask_v) != u ) {
+					flag_v = true;
+									}
+				if ((w & mask_w) != w) {
+					flag_w = true;
 				}
 				//the Undirected graph already conside u--w-->v and v--w-->u at the same way returning also the same weights.
 				//no need to insert the edge if it is already thereS
@@ -59,6 +62,13 @@ void loadGraphFromFile(std::string path, Graph& g) {
 			}
 		}
 		aFile.close();
+
+		if(flag_v)
+			std::cout << "Pay attention there exists some vertex id that has exceeded the representation power consider change bits dedicated." << std::endl;
+		
+		if(flag_w)
+			std::cout << "Pay attention there exists some weight that has exceeded the representation power consider change bits dedicated." << std::endl;
+
 	}
 	else {
 		std::cout << "Error while opening file";
@@ -66,13 +76,15 @@ void loadGraphFromFile(std::string path, Graph& g) {
 
 }
 
-void generateRandom(int nr_vertices, Graph& g) {
+void generateRandom(int nr_vertices, int nr_edges , Graph& g) {
 	boost::minstd_rand gen;
 	int max_weight = 1000;
 
+	
+	//int nr_edges = nr_vertices * 4;
 	// https://valelab4.ucsf.edu/svn/3rdpartypublic/boost/libs/graph_parallel/doc/html/rmat_generator.html
-	// 
-	int nr_edges = nr_vertices * 4;
+	// the four floating point numbers that follows: a, b, c, and d represent the probability that a generated edge 
+	// is placed of each of the 4 quadrants of the partitioned adjacency matrix
 	g = Graph(RMATGen(gen, nr_vertices,nr_edges, 0.57, 0.19, 0.19, 0.05), RMATGen(), nr_vertices);
 	//
 	//g = Graph(ERGen(gen, nr_vertices, 0.25), ERGen(), nr_vertices);
@@ -157,4 +169,18 @@ void toGraph(Graph &g, DatastructuresOnGpu* onGPU) {
 	free(e);
 	free(w);
 	free(e_ptr);
+}
+
+void writeGraphToFile(Graph& g, std::ostream& out)
+{
+	WeightMap weights = boost::get(boost::edge_weight, g);
+	//print problem description
+	out << "c DIMACS graph" << std::endl;
+	//print number of verts and edges
+	out << "p sp " << boost::num_vertices(g) << " " << boost::num_edges(g) << std::endl; 
+	//output the edges
+	Graph::edge_iterator  ei, e_end;
+	for (boost::tie(ei, e_end) = edges(g); ei != e_end; ++ei) {
+		out << "a " << source(*ei, g) + 1 << " " << target(*ei, g) + 1 << " " << boost::get(boost::edge_weight_t(), g, *ei) << std::endl;
+	}
 }
