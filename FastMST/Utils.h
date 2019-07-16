@@ -10,8 +10,8 @@
 #include <thrust\sort.h>
 
 #define BLOCK_SIZE  32
-#define WEIGHT_SIZE 13
-#define VERTEX_SIZE 19
+#define WEIGHT_SIZE 10
+#define VERTEX_SIZE 22
 #define SHARED_MEMORY_LIMIT 48000
 //#define DEBUG
 //#define PEDANTIC

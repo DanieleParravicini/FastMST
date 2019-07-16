@@ -290,7 +290,7 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
 	//first 32 bit store the key, last 32 bit store a value.
 
 
-	int pos, pos_in_cache;
+	int pos;
 	int items_per_thread = (n + blockDim.x - 1) / blockDim.x;
 	
 
@@ -300,30 +300,26 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
 	}
 #endif
 	
-	bool flag;
+
 	unsigned int new_s;
 	unsigned int old_s;
 	for (int i = 0; i < items_per_thread; i++) {
 		pos = threadIdx.x*items_per_thread + i;
 	
-		if (threadIdx.x == 0) {
-			flag = false;
-		}
+		if (pos < n) {
 
 
-		old_s = S[pos];
-		do {
-				
+			old_s = S[pos];
+			do {
+
 				new_s = S[old_s];
-				
-				if (old_s != new_s) {
-					flag = true;
-					//S[pos] = new_s;
-				}
-				old_s = new_s;
-			
-		} while (pos < n && old_s != new_s);
 
+				old_s = new_s;
+
+			} while (old_s != new_s);
+
+			S[pos] = new_s;
+		}
 	}
 
 }
@@ -396,7 +392,7 @@ void minOutgoingEdge(DatastructuresOnGpu* onGPU) {
 
 	cudaMemset(onGPU->F, 0, sizeof(unsigned int) * onGPU->numEdges);
 	cudaDeviceSynchronize();
-	mark_edge_ptr << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->edgePtr, onGPU->numVertices);
+	mark_edge_ptr << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->edgePtr, onGPU->numVertices);
 	cudaDeviceSynchronize();
 	segmentedMinScanInCuda(onGPU->X, onGPU->X, onGPU->F, onGPU->numEdges);
 	cudaDeviceSynchronize();
@@ -476,7 +472,7 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 		replaceTillFixedPointInShared << <1, block_dim, sizeof(unsigned int) * onGPU->numVertices >> >(onGPU->S, onGPU->numVertices);
 	}
 	else {
-		replaceTillFixedPoint << <1, 1024, 48000 >> >(onGPU->S, onGPU->numVertices);
+		replaceTillFixedPoint << <1, 1024 >> >(onGPU->S, onGPU->numVertices);
 	}
 	cudaDeviceSynchronize();
 

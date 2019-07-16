@@ -20,7 +20,7 @@ struct DatastructuresOnGpu {
 	unsigned int* S;
 
 
-	unsigned int cost = 0;
+	unsigned long long int cost = 0;
 
 	void printForWebgraphvizrint() {
 		unsigned int	*e		= (unsigned int*)malloc(sizeof(unsigned int)* numEdges),

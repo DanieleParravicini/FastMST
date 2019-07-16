@@ -18,15 +18,15 @@
 #include "Utils.h"
 
 
-int mst(Graph &g);
+long long int mst(Graph &g);
 
-int mst(CompactGraph &g);
+long long int mst(CompactGraph &g);
 
-int mst(DatastructuresOnGpu* onGPU);
+long long int mst(DatastructuresOnGpu* onGPU);
 
-int verifyMst(Graph &g);
+long long int verifyMst(Graph &g);
 
-int verifyMst(CompactGraph &g);
+long long int verifyMst(CompactGraph &g);
 
-int verifyMst(DatastructuresOnGpu* onGPU);
+long long int verifyMst(DatastructuresOnGpu* onGPU);
 

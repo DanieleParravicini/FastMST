@@ -5,20 +5,20 @@
 
 
 
-int mst(Graph &g) {
+long long int mst(Graph &g) {
 
 	CompactGraph c(g);
 	return mst(c);
 
 }
 
-int mst(CompactGraph &g) {
+long long int mst(CompactGraph &g) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
 	onGPU.numEdges = g.edges.size();
 	onGPU.numVertices = g.vertices.size();
-	int res = -1;
+	long long int res = -1;
 
 	try {
 		//1. move data structures to GPU memory
@@ -47,6 +47,7 @@ int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
+		cudaDeviceSynchronize();
 		cudaEvent_t start, stop;
 		cudaEventCreate(&start);
 		cudaEventCreate(&stop);
@@ -86,7 +87,7 @@ int mst(CompactGraph &g) {
 
 		throw err;
 	}
-	catch (thrust::system_error &e)
+	/*catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
 		//got some unspecified launch failure?
@@ -101,12 +102,12 @@ int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		throw e;
-	}
+	}*/
 
 	return res;
 }
 
-int mst(DatastructuresOnGpu *onGPU) {
+long long int mst(DatastructuresOnGpu *onGPU) {
 	int iter = 0;
 	while (onGPU->numVertices > 1) {
 #if defined INFORMATIVE
@@ -152,20 +153,20 @@ int mst(DatastructuresOnGpu *onGPU) {
 	return onGPU->cost;
 }
 
-int verifyMst(Graph &g) {
+long long int verifyMst(Graph &g) {
 
 	CompactGraph c(g);
 	return mst(c);
 
 }
 
-int verifyMst(CompactGraph &g) {
+long long int verifyMst(CompactGraph &g) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
 	onGPU.numEdges = g.edges.size();
 	onGPU.numVertices = g.vertices.size();
-	int res = -1;
+	long long int res = -1;
 
 	try {
 		//1. move data structures to GPU memory
@@ -253,7 +254,7 @@ int verifyMst(CompactGraph &g) {
 	return res;
 }
 
-int verifyMst(DatastructuresOnGpu* onGPU) {
+long long int verifyMst(DatastructuresOnGpu* onGPU) {
 	//onGPU->printForWebgraphvizrint();
 
 	if (onGPU->numVertices <= 1)
