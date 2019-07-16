@@ -109,9 +109,10 @@ int mst(CompactGraph &g) {
 int mst(DatastructuresOnGpu *onGPU) {
 	int iter = 0;
 	while (onGPU->numVertices > 1) {
-		std::cout <<"[ iter " << iter << " ]"<< std::endl;
+#if defined INFORMATIVE
+		std::cout << "[ iter " << iter << " ]" << std::endl;
 		//print results
-
+#endif
 #if defined(PEDANTIC) || defined(DEBUG)
 		std::cout << std::endl << "[iter " << iter << "]" << std::endl;
 		std::cout << "Vertices" << std::endl;

@@ -215,38 +215,8 @@ __global__ void mark_discontinuance(unsigned int* out, unsigned int* ptr, unsign
 	}
 }
 
-__global__ void replaceTillFixedPointOld(unsigned int * S, unsigned int n) {
-	//consider to move S of block into a shared memory.
-	//TDOD:refacytoring
-	__shared__ bool flag;
-	int idx = threadIdx.x + blockDim.x*blockIdx.x;
-	if (idx < n) {
-		unsigned int new_s = S[idx];
 
-		unsigned int old_s;
-		do {
-			flag = false;
-
-
-			old_s = new_s;
-			new_s = S[new_s];
-
-			if (old_s != new_s)
-				flag = true;
-
-			__syncthreads();
-
-			//S[idx] = new_s;
-
-		} while (flag);
-
-		S[idx] = new_s;
-		//printf("in the end %d: %d \n", idx, S[idx]);
-	}
-
-}
-
-__global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
+__global__ void replaceTillFixedPointInShared(unsigned int * S, unsigned int n) {
 	//Move S of block into a shared memory.
 	extern __shared__ unsigned int A[] ;
 	int pos;
@@ -298,6 +268,63 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
 		}
 	}
 	
+
+}
+
+__device__ unsigned long long toCacheCell(unsigned int key, unsigned int value) {
+	return (key << 16) << 16 || value;
+}
+
+__device__ unsigned int keyCacheCell(unsigned long long cell) {
+	unsigned int ret = (cell >> 16) >> 16;
+	return ret;
+}
+
+__device__ unsigned int valueCacheCell(unsigned long long cell) {
+	unsigned int ret = cell & createMask(0, 32);
+	return ret;
+}
+
+__global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n) {
+	//the shared memory is used as a cache
+	//first 32 bit store the key, last 32 bit store a value.
+
+
+	int pos, pos_in_cache;
+	int items_per_thread = (n + blockDim.x - 1) / blockDim.x;
+	
+
+#ifdef PEDANTIC
+	if (threadIdx.x == 0) {
+		printf("total : %d elements; %d items for each thread", n, items_per_thread);
+	}
+#endif
+	
+	bool flag;
+	unsigned int new_s;
+	unsigned int old_s;
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+	
+		if (threadIdx.x == 0) {
+			flag = false;
+		}
+
+
+		old_s = S[pos];
+		do {
+				
+				new_s = S[old_s];
+				
+				if (old_s != new_s) {
+					flag = true;
+					//S[pos] = new_s;
+				}
+				old_s = new_s;
+			
+		} while (pos < n && old_s != new_s);
+
+	}
 
 }
 
@@ -444,10 +471,13 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->S, onGPU->numVertices);
 #endif
 	//compute successor
-	//replaceTillFixedPointOld << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->S, onGPU->numVertices);
-
-	int block_dim = (1024 < onGPU->numVertices ? 1024 : ((int)(onGPU->numVertices + 16 )/ 17) );
-	replaceTillFixedPoint <<<1, block_dim , sizeof(unsigned int) * onGPU-> numVertices >>>(onGPU->S, onGPU->numVertices);
+	if (sizeof(unsigned int) * onGPU->numVertices < 48000) {
+		int block_dim = std::min(1024, ((int)(onGPU->numVertices + 16) / 17));
+		replaceTillFixedPointInShared << <1, block_dim, sizeof(unsigned int) * onGPU->numVertices >> >(onGPU->S, onGPU->numVertices);
+	}
+	else {
+		replaceTillFixedPoint << <1, 1024, 48000 >> >(onGPU->S, onGPU->numVertices);
+	}
 	cudaDeviceSynchronize();
 
 #ifdef PEDANTIC
