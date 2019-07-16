@@ -14,7 +14,7 @@ int main(int argc, char ** argv) {
 	Graph g1;
 
 	if (argc < 2) {
-		std::cout << "[HELP] Usage of this program: invoke MST <name of a file containing a graph in DIMACS format>" << std::endl;
+		std::cout << "[HELP] Usage of this program: invoke MST.exe <name of a file containing a graph in DIMACS format>" << std::endl;
 		return -1;
 	}
 	loadGraphFromFile(argv[1], g1);
@@ -32,7 +32,7 @@ int main(int argc, char ** argv) {
 
 
 
-	int cost = mst(g1);
+	long long int cost = mst(g1);
 	
 	std::cout << "Cost mst boruvska [" << cost << "]" << std::endl;
 	return 0;

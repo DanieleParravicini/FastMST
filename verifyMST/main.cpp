@@ -40,13 +40,13 @@ int main(int argc, char ** argv) {
 	double elapsed_secs = double(end - begin) / CLOCKS_PER_SEC;
 	std::cout << "Time cpu occupied: " << elapsed_secs << " [s]" << std::endl;
 
-	int cost = 0;
+	long long int cost = 0;
 	for (Edge e : edges) {
 		cost += boost::get(boost::edge_weight, g1, e);
 	}
 
 
-	int cost1 = verifyMst(g1);
+	long long int cost1 = verifyMst(g1);
 	if (cost1 != cost) {
 		std::cout << "KO: total cost mst kruscal [" << cost << "] != boruvska [" << cost1 << "]" << std::endl;
 		return -1;
