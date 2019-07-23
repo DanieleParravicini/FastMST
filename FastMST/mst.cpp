@@ -21,6 +21,8 @@ long long int mst(CompactGraph &g) {
 	long long int res = -1;
 
 	try {
+		//0. obtain max shared memory exploitable per block
+		cudaDeviceGetAttribute(&onGPU.maxSharedBytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
 		//1. move data structures to GPU memory
 		//create vertices as large as the number of edges since it will be reused in the reconstruction of the graph.
 		status = cudaMalloc(&onGPU.vertices, sizeof(unsigned int)*onGPU.numEdges);
@@ -56,6 +58,9 @@ long long int mst(CompactGraph &g) {
 		cudaProfilerStart();
 		cudaEventRecord(start);
 
+		
+		
+
 		res = mst(&onGPU);
 
 		cudaEventRecord(stop);
@@ -87,7 +92,7 @@ long long int mst(CompactGraph &g) {
 
 		throw err;
 	}
-	/*catch (thrust::system_error &e)
+	catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
 		//got some unspecified launch failure?
@@ -102,7 +107,7 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		throw e;
-	}*/
+	}
 
 	return res;
 }
@@ -169,6 +174,8 @@ long long int verifyMst(CompactGraph &g) {
 	long long int res = -1;
 
 	try {
+		//0. obtain max shared memory exploitable per block
+		cudaDeviceGetAttribute(&onGPU.maxSharedBytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
 		//1. move data structures to GPU memory
 		//create vertices as large as the number of edges since it will be reused in the reconstruction of the graph.
 		status = cudaMalloc(&onGPU.vertices, sizeof(unsigned int)*onGPU.numEdges);

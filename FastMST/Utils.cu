@@ -467,7 +467,8 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->S, onGPU->numVertices);
 #endif
 	//compute successor
-	if (sizeof(unsigned int) * onGPU->numVertices < 48000) {
+	
+	if (sizeof(unsigned int) * onGPU->numVertices < onGPU->maxSharedBytes) {
 		int block_dim = std::min(1024, ((int)(onGPU->numVertices + 16) / 17));
 		replaceTillFixedPointInShared << <1, block_dim, sizeof(unsigned int) * onGPU->numVertices >> >(onGPU->S, onGPU->numVertices);
 	}

@@ -19,10 +19,10 @@ struct DatastructuresOnGpu {
 	unsigned int* F;
 	unsigned int* S;
 
-
+	int maxSharedBytes;
 	unsigned long long int cost = 0;
 
-	void printForWebgraphvizrint() {
+	void printForWebgraphviz() {
 		unsigned int	*e		= (unsigned int*)malloc(sizeof(unsigned int)* numEdges),
 						*w		= (unsigned int*)malloc(sizeof(unsigned int)* numEdges),
 						*e_ptr	= (unsigned int*)malloc(sizeof(unsigned int)* numVertices);
