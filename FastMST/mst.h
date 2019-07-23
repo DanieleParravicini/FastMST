@@ -16,6 +16,7 @@
 #include <thrust\sort.h>
 
 #include "Utils.h"
+#include "mstKernels.cuh"
 
 
 long long int mst(Graph &g);

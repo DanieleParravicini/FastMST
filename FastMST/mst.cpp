@@ -2,9 +2,6 @@
 #include "cuda_profiler_api.h"
 
 
-
-
-
 long long int mst(Graph &g) {
 
 	CompactGraph c(g);
@@ -49,17 +46,18 @@ long long int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
+		status = cudaMalloc(&onGPU.NVE, sizeof(NVEcell)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+
 		cudaDeviceSynchronize();
 		cudaEvent_t start, stop;
 		cudaEventCreate(&start);
 		cudaEventCreate(&stop);
 
-
 		cudaProfilerStart();
 		cudaEventRecord(start);
-
-		
-		
 
 		res = mst(&onGPU);
 
@@ -79,6 +77,7 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
+		cudaFree(onGPU.NVE);
 	}
 	catch (cudaError_t err) {
 		std::cout << err;
@@ -89,10 +88,11 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
+		cudaFree(onGPU.NVE);
 
 		throw err;
 	}
-	catch (thrust::system_error &e)
+	/*catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
 		//got some unspecified launch failure?
@@ -106,8 +106,10 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
+		cudaFree(onGPU.NVE);
+
 		throw e;
-	}
+	}*/
 
 	return res;
 }
@@ -130,7 +132,7 @@ long long int mst(DatastructuresOnGpu *onGPU) {
 		std::cout << "weights" << std::endl;
 		debug_device_ptr(onGPU->weights, onGPU->numEdges);
 
-		onGPU->printForWebgraphvizrint();
+		onGPU->printForWebgraphviz();
 
 #endif
 
@@ -161,7 +163,7 @@ long long int mst(DatastructuresOnGpu *onGPU) {
 long long int verifyMst(Graph &g) {
 
 	CompactGraph c(g);
-	return mst(c);
+	return verifyMst(c);
 
 }
 
@@ -202,6 +204,10 @@ long long int verifyMst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
+		status = cudaMalloc(&onGPU.NVE, sizeof(NVEcell)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
 		cudaEvent_t start, stop;
 		cudaEventCreate(&start);
 		cudaEventCreate(&stop);
@@ -228,6 +234,8 @@ long long int verifyMst(CompactGraph &g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
+		cudaFree(onGPU.NVE);
+
 	}
 	catch (cudaError_t err) {
 		std::cout << err;
@@ -238,6 +246,7 @@ long long int verifyMst(CompactGraph &g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
+		cudaFree(onGPU.NVE);
 
 		throw err;
 	}
@@ -255,6 +264,8 @@ long long int verifyMst(CompactGraph &g) {
 		cudaFree(onGPU.X);
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
+		cudaFree(onGPU.NVE);
+
 		throw e;
 	}
 
@@ -278,7 +289,7 @@ long long int verifyMst(DatastructuresOnGpu* onGPU) {
 		std::cout << "weights" << std::endl;
 		debug_device_ptr(onGPU->weights, onGPU->numEdges);
 
-		onGPU->printForWebgraphvizrint();
+		onGPU->printForWebgraphviz();
 #endif
 
 		int curr_cost = onGPU->cost;

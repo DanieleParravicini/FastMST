@@ -1,9 +1,11 @@
 #pragma once
 #include <iostream>
 
-
+#include "NVEcell.cuh"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
+
+
 
 struct DatastructuresOnGpu {
 	unsigned int* vertices = 0;
@@ -19,6 +21,8 @@ struct DatastructuresOnGpu {
 	unsigned int* F;
 	unsigned int* S;
 
+	struct NVEcell* NVE;
+	
 	int maxSharedBytes;
 	unsigned long long int cost = 0;
 
@@ -32,8 +36,6 @@ struct DatastructuresOnGpu {
 		cudaMemcpy(e_ptr, edgePtr	, sizeof(unsigned int) * numVertices, cudaMemcpyDeviceToHost);
 
 		std::cout << "Graph {" << std::endl;
-		//maybe considering first fill vertices array
-		//and then search in it. to obtain the identifier in our datastructure. 
 		
 		for (unsigned int i = 0; i < numVertices-1; i++) {
 			for (unsigned int v = e_ptr[i]; v < e_ptr[i + 1]; v++ ) {

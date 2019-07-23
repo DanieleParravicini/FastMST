@@ -30,15 +30,7 @@ CompactGraph::CompactGraph(Graph &g)
 	WeightMap weights = boost::get(boost::edge_weight, g);
 	//1. build a map by inserting node with at least an exiting arc.
 	graph_traits<Graph>::vertex_iterator vertex, vertex_end;
-	/*
-	for (boost::tie(vertex, vertex_end) = boost::vertices(g); vertex != vertex_end; ++vertex) {
 
-		graph_traits<Graph>::adjacency_iterator adj, adj_end;
-		boost::tie(adj, adj_end) = boost::adjacent_vertices(*vertex, g);
-		if (adj == adj_end)
-			continue; //this filters out vertex with no edges
-		map.push_back(*vertex);
-	}*/
 
 	unsigned int v = 0;
 	int edge_cnt = 0;
@@ -50,8 +42,7 @@ CompactGraph::CompactGraph(Graph &g)
 		if (adj == adj_end)
 			continue; //this filters out vertex with no edges
 
-		//this->vertices.push_back(v);
-		//this->edgePtr.push_back(edge_cnt);
+		
 		this->vertices.push_back(*vertex);
 		this->edgePtr.push_back(edge_cnt);
 
@@ -59,10 +50,7 @@ CompactGraph::CompactGraph(Graph &g)
 			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
 			std::pair<Edge, bool> res2 = boost::edge(*adj, *vertex, g);
 			assert(!res.second || res2.second);
-			//std::cout << *vertex << " -- " << *adj << "[" << boost::get(weights, res.first) << std::endl;
-			//i = std::find(map.begin(), map.end(), *adj);
 			
-			//this->edges.push_back(std::distance(map.begin(), i));
 			this->edges.push_back(*adj);
 			int w = boost::get(weights, res.first);
 			this->weights.push_back(w);

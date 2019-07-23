@@ -3,6 +3,7 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "DataStructureOnGpu.h"
+#include "NVEcell.cuh"
 #include <algorithm>
 
 #include <thrust\device_vector.h>
@@ -25,48 +26,16 @@ void* moveToGpu(std::vector<unsigned int> src);
 void debug_device_ptr(unsigned int* ptr, unsigned int items);
 void debug_device_ptr(unsigned int* ptr, unsigned int items, unsigned int nrbit);
 
-unsigned int* MarkEdgeSegments(DatastructuresOnGpu onGPU);
-
-void MarkEdgeSegmentsOnGpu(DatastructuresOnGpu onGPU, unsigned int* flags);
-
-
 void segmentedMinScan(int* out, int* in, int* flags, int width);
 void segmentedMinScanInCuda(unsigned int* out, unsigned int* in, unsigned int* flags, unsigned int width);
 
+int grid(int n, int block);
+
+
 __global__ void fill(unsigned int* out, unsigned int immediate, unsigned int width);
-
 __global__ void fill(unsigned int* out, unsigned int* src, unsigned int width, unsigned int mask);
-
 __global__ void fill(unsigned int* out, unsigned int* src, unsigned int width, unsigned int mask, unsigned int from);
 
-__global__ void mark_edge_ptr(unsigned int* out, unsigned int* ptr, unsigned int width);
-__global__ void getMinNodes();
 
+__global__ void copyIndirected(unsigned int* dst, unsigned int* src, unsigned int * ptr, unsigned int n, unsigned int m);
 
-__global__ void copyIndirected(int* dst, int* src, int * ptr, int n);
-
-template<int mask, int shift>
-int unMaskAndShift(int a) {
-	return (a & mask) >> shift;
-}
-
-
-template< int op(int)>
-__global__ void copy(int* src, int* dst, int n);
-
-__global__ void moveWeightsAndSuccessors(unsigned int* src, unsigned int* dstW, unsigned int * dstS, unsigned int n);
-
-
-void minOutgoingEdge(DatastructuresOnGpu* onGPU);
-
-void moveMinWeightsAndSuccessor(DatastructuresOnGpu* onGPU);
-void computeCosts(DatastructuresOnGpu* onGPU);
-void buildSuccessor(DatastructuresOnGpu* onGPU);
-
-void orderUVW(DatastructuresOnGpu*onGPU);
-void rebuildEdgePtr(DatastructuresOnGpu* onGPU);
-void rebuildVertices(DatastructuresOnGpu* onGPU);
-void rebuildEdgeWeights(DatastructuresOnGpu* onGPU);
-
-void buildSupervertexId(DatastructuresOnGpu* onGPU);
-void rebuildCompressedGraphRepresentation(DatastructuresOnGpu* onGPU);
