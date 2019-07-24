@@ -3,7 +3,7 @@
 
 
 long long int mst(Graph &g, std::vector<Edge> &mst_result) {
-	CompactGraph c(g );
+	ExpandedGraph c(g );
 	
 	unsigned int* array_mst_result = (unsigned int *) malloc(sizeof(unsigned int) * c.vertices.size() * 2);
 	unsigned int length = 0;
@@ -28,13 +28,13 @@ long long int mst(Graph &g, std::vector<Edge> &mst_result) {
 	return ret;
 }
 
-long long int mst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result) {
+long long int mst(ExpandedGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
 	onGPU.savedEdges = 0;
 	onGPU.numEdges = g.edges.size();
-	onGPU.numVertices = g.vertices.size();
+	onGPU.numVertices = g.vertices.at(g.vertices.size() - 1)+1;
 	long long int res = -1;
 	
 	try {
@@ -46,7 +46,7 @@ long long int mst(CompactGraph &g, unsigned int * array_mst_result, unsigned int
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-		status = cudaMemcpy(onGPU.vertices, &g.vertices[0], sizeof(unsigned int)*onGPU.numVertices, cudaMemcpyHostToDevice);
+		status = cudaMemcpy(onGPU.vertices, &g.vertices[0], sizeof(unsigned int)*onGPU.numEdges, cudaMemcpyHostToDevice);
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
@@ -198,7 +198,7 @@ long long int mst(DatastructuresOnGpu *onGPU) {
 		orderUVW(onGPU);
 		rebuildEdgeWeights(onGPU);
 		rebuildEdgePtr( onGPU);
-		rebuildVertices( onGPU);
+
 		//4. update num of vertices, num of edges counter using scan result.
 		iter++;
 		onGPU->numVertices = onGPU->newNumVertices;
@@ -210,7 +210,7 @@ long long int mst(DatastructuresOnGpu *onGPU) {
 
 long long int verifyMst(Graph &g, std::vector<Edge> &mst_result) {
 
-	CompactGraph c(g);
+	ExpandedGraph c(g);
 
 	unsigned int* array_mst_result = (unsigned int *)malloc(sizeof(unsigned int) * c.vertices.size() * 2);
 	unsigned int length = 0;
@@ -236,13 +236,13 @@ long long int verifyMst(Graph &g, std::vector<Edge> &mst_result) {
 	return ret;
 }
 
-long long int verifyMst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result) {
+long long int verifyMst(ExpandedGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
 	onGPU.savedEdges = 0;
 	onGPU.numEdges = g.edges.size();
-	onGPU.numVertices = g.vertices.size();
+	onGPU.numVertices = g.vertices.at( g.vertices.size()-1) + 1;
 	long long int res = -1;
 	
 	try {
@@ -254,7 +254,7 @@ long long int verifyMst(CompactGraph &g, unsigned int * array_mst_result, unsign
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
-		status = cudaMemcpy(onGPU.vertices, &g.vertices[0], sizeof(unsigned int)*onGPU.numVertices, cudaMemcpyHostToDevice);
+		status = cudaMemcpy(onGPU.vertices, &g.vertices[0], sizeof(unsigned int)*onGPU.numEdges, cudaMemcpyHostToDevice);
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
@@ -424,7 +424,6 @@ long long int verifyMst(DatastructuresOnGpu* onGPU) {
 		orderUVW(onGPU);
 		rebuildEdgeWeights(onGPU);
 		rebuildEdgePtr(onGPU);
-		rebuildVertices(onGPU);
 		//4. update num of vertices, num of edges counter using scan result.
 		
 		//5. solve sub problem mst

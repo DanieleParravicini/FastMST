@@ -6,7 +6,7 @@
 
 #include "mst.h"
 #include "Graph.h"
-#include "CompactGraph.h"
+
 #include <boost/graph/kruskal_min_spanning_tree.hpp>
 #include <ctime>
 

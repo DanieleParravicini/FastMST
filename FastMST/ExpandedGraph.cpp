@@ -1,17 +1,18 @@
-#include "CompactGraph.h"
+#include "ExpandedGraph.h"
 
 //TODO: assumed 1 connected component? in other words that node has always a outgoing edge?
-CompactGraph::CompactGraph(std::vector<std::vector<int>> weightMatrix)
+ExpandedGraph::ExpandedGraph(std::vector<std::vector<int>> weightMatrix)
 	:vertices(), edgePtr(), edges(), weights(), edgesIds()
 {
 	int edgeCount = 0;
 	for (int src = 0; src < weightMatrix.size(); src++) {
-		vertices.push_back(src);
+		
 
 		edgePtr.push_back(edgesCount);
 
 		for (int dst = 0; dst < weightMatrix[src].size(); dst++) {
 			if (weightMatrix[src][dst] > 0) {
+				vertices.push_back(src);
 				edges.push_back(dst);
 				weights.push_back(weightMatrix[src][dst]);
 				edgesCount++;
@@ -22,7 +23,7 @@ CompactGraph::CompactGraph(std::vector<std::vector<int>> weightMatrix)
 }
 
 
-CompactGraph::CompactGraph(Graph &g)
+ExpandedGraph::ExpandedGraph(Graph &g)
 	:vertices(), edgePtr(), edges(), weights(), edgesIds()
 {
 	
@@ -43,14 +44,15 @@ CompactGraph::CompactGraph(Graph &g)
 			continue; //this filters out vertex with no edges
 
 		
-		this->vertices.push_back(*vertex);
+		
 		this->edgePtr.push_back(edge_cnt);
 
 		for (; adj != adj_end; ++adj) {
 			std::pair<Edge, bool> res = boost::edge(*vertex, *adj, g);
 			std::pair<Edge, bool> res2 = boost::edge(*adj, *vertex, g);
 			assert(!res.second || res2.second);
-			
+
+			this->vertices.push_back(*vertex);
 			this->edges.push_back(*adj);
 			int w = boost::get(weights, res.first);
 			this->weights.push_back(w);
@@ -63,12 +65,12 @@ CompactGraph::CompactGraph(Graph &g)
 
 }
 
-CompactGraph::~CompactGraph()
+ExpandedGraph::~ExpandedGraph()
 {
 }
 
 
-void CompactGraph::print() {
+void ExpandedGraph::print() {
 
 
 	std::cout << "Vertices:" << std::endl;

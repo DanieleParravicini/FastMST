@@ -30,7 +30,6 @@ void saveMinOutgoingEdges(DatastructuresOnGpu* onGPU);
 
 void orderUVW(DatastructuresOnGpu*onGPU);
 void rebuildEdgePtr(DatastructuresOnGpu* onGPU);
-void rebuildVertices(DatastructuresOnGpu* onGPU);
 void rebuildEdgeWeights(DatastructuresOnGpu* onGPU);
 
 void buildSupervertexId(DatastructuresOnGpu* onGPU);

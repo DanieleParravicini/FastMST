@@ -232,11 +232,8 @@ __global__ void mark_differentUV(unsigned int* flag, unsigned int* v, unsigned i
 __global__ void mark_differentU(unsigned int* flag, unsigned int* v, unsigned int n) {
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-	if (idx < n - 1) {
-		if (v[idx] != v[idx + 1]) {
-			flag[idx] = 1;
-		}
-
+    if ((idx == 0) || (idx < n - 1  && v[idx] != v[idx + 1])) {
+		flag[idx+1] = 1;
 	}
 
 }
@@ -316,7 +313,7 @@ int blockRounder(int block) {
 
 /// on X in position pointed by edgePtr[src] we can obtain the min couple (weight, dest) for that src vertex.
 void minOutgoingEdge(DatastructuresOnGpu* onGPU) {
-	thrust::device_ptr<unsigned int > f_on_gpu(onGPU->F);
+	thrust::device_ptr<unsigned int > v_on_gpu(onGPU->vertices);
 	thrust::device_ptr<UVcell> uv_on_gpu((UVcell*)onGPU->NVE);
 
 	cudaMemset(onGPU->NVE, 0, sizeof(NVEcell)* onGPU->numEdges);
@@ -327,19 +324,10 @@ void minOutgoingEdge(DatastructuresOnGpu* onGPU) {
 
 	cudaDeviceSynchronize(); 
 
-
-	cudaMemset(onGPU->F, 0, sizeof(unsigned int) * onGPU->numEdges);
-	cudaDeviceSynchronize(); 
-
-	mark_edge_ptr << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->edgePtr, onGPU->numVertices);
-	cudaDeviceSynchronize(); 
-
-	thrust::inclusive_scan(f_on_gpu, f_on_gpu + onGPU->numEdges, f_on_gpu);
-
 	thrust::equal_to<unsigned int> binary_pred;
 	minimum_UV_cell binary_op;
 
-	thrust::inclusive_scan_by_key(f_on_gpu, f_on_gpu + onGPU->numEdges, uv_on_gpu, uv_on_gpu, binary_pred, binary_op);
+	thrust::inclusive_scan_by_key(v_on_gpu, v_on_gpu + onGPU->numEdges, uv_on_gpu, uv_on_gpu, binary_pred, binary_op);
 	
 	cudaDeviceSynchronize(); 
 	
@@ -485,7 +473,7 @@ void moveMinWeightsAndSuccessor(DatastructuresOnGpu* onGPU) {
 
 void computeCosts(DatastructuresOnGpu* onGPU) {
 #ifdef PEDANTIC
-	std::cout << "weights of min cut:" << std::endl;
+	std::cout << "weights of min outgoing edges for each vertex:" << std::endl;
 	debug_device_ptr(onGPU->X, onGPU->numVertices);
 #endif
 	//use weights stored in X to
@@ -567,8 +555,6 @@ void buildSupervertexId(DatastructuresOnGpu* onGPU) {
 	//use exclusive scan so that first element get 0 as original position
 	thrust::exclusive_scan(v_on_gpu, v_on_gpu + onGPU->numVertices, v_on_gpu);
 	cudaDeviceSynchronize();
-
-
 
 	//2. order according to successor and move accordingly the array v
 	thrust::sort_by_key(s_on_gpu, s_on_gpu + onGPU->numVertices, v_on_gpu);
@@ -739,6 +725,9 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	//8.c compute the number of edges available in the next iteration by reading the tail of the scan vector result.
 
 	cudaMemcpy(&onGPU->newNumEdges, onGPU->X + onGPU->numEdges - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&onGPU->newNumVertices, onGPU->vertices + onGPU->numEdges - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
+	onGPU->newNumVertices++;
+
 	//8.d. since index start at 0 subtract 1 from all the indices.
 	thrust::transform(x_on_gpu, x_on_gpu + onGPU->numEdges, x_on_gpu, minus1());
 	cudaDeviceSynchronize(); 
@@ -754,19 +743,26 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	//8.d. move weights
 	//since input data and output can't reside on the same memory area we move them temporarily to S
 	cudaMemcpy(onGPU->S, onGPU->weights, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	cudaDeviceSynchronize(); 
 	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, w_on_gpu);
 	//8.e. move destination vertices
 	//since input data and output can't reside on the same memory area we mve them temporarily to S
 	cudaMemcpy(onGPU->S, onGPU->edges, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	cudaDeviceSynchronize(); 
 	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, e_on_gpu);
 	cudaDeviceSynchronize(); 
+	//8.f. move edge IDs
+	//since input data and output can't reside on the same memory area we mve them temporarily to S
 	cudaMemcpy(onGPU->S, onGPU->edgeID, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
 	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, edgeID_on_gpu);
+	cudaDeviceSynchronize();
+	//8.g. move source
+	//since input data and output can't reside on the same memory area we mve them temporarily to S
+	cudaMemcpy(onGPU->S, onGPU->vertices, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, v_on_gpu);
 
 #ifdef PEDANTIC
 	std::cout << "new edges (" << onGPU->newNumEdges << ") :" << std::endl;
+	std::cout << "new sources" << std::endl;
+	debug_device_ptr(onGPU->vertices, onGPU->newNumEdges);
 	std::cout << "new weights" << std::endl;
 	debug_device_ptr(onGPU->weights, onGPU->newNumEdges);
 	std::cout << "new edges" << std::endl;
@@ -782,28 +778,28 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 		f_on_gpu(onGPU->F),
 		w_on_gpu(onGPU->weights), eptr_on_gpu(onGPU->edgePtr),
 		x_on_gpu(onGPU->X);
+
+	if (onGPU->newNumEdges == 0)
+		return;
+
 	//exploit data already computed for Edges in X number of useful edges
 	//9. create EdgePTR:
 	//9.a find discontinuance in source vertex
 	//    since there was a collapsing in the previous step there would always be a edge for each supervertex.
-	cudaMemset(onGPU->F, 0, onGPU->numEdges* sizeof(unsigned int));
+	cudaMemset(onGPU->F, 0, onGPU->newNumEdges* sizeof(unsigned int));
 	cudaDeviceSynchronize(); 
-	mark_differentU << <grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->vertices, onGPU->numEdges);
+	mark_differentU << <grid(onGPU->newNumEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->vertices, onGPU->newNumEdges);
 	cudaDeviceSynchronize(); 
-	//9.b perform a inclusive scan on such a flag in order to obtain offset in the edge ptr
-	thrust::inclusive_scan(f_on_gpu, f_on_gpu + onGPU->numEdges, s_on_gpu);
-	//9.c obtain vertex number by reading from the tail of S
-	//and then summing 1
-	cudaMemcpy(&onGPU->newNumVertices, onGPU->S + onGPU->numEdges - 1, sizeof(unsigned int), cudaMemcpyDeviceToHost);
-	cudaDeviceSynchronize(); 
-	onGPU->newNumVertices++;
+
 
 	//9.d Build edge ptr:
 	//when the source vector change pick the number of relevant edges till the previous vertex and then increment by one 
-	//9.d.1
+	fill<<< grid(onGPU->newNumEdges, BLOCK_SIZE), BLOCK_SIZE>>>(onGPU->X, 1, onGPU->newNumEdges);
+	thrust::exclusive_scan(x_on_gpu, x_on_gpu + onGPU->newNumEdges, x_on_gpu);
+
 	//if on x we have the counted the number of edges that will be preserved
 	//   on f we have the stencil that indicate two different consequence sources
-	//   on s we have the scan result on the stencil.
+	//   on v we have the scan result on the stencil(i.e. v itself).
 #ifdef PEDANTIC
 	std::cout << "mark relevant edges for vertices" << std::endl;
 	debug_device_ptr(onGPU->F, onGPU->numEdges);
@@ -813,15 +809,9 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->X, onGPU->numEdges);
 #endif
 
-	thrust::scatter_if(x_on_gpu, x_on_gpu + onGPU->numEdges, s_on_gpu, f_on_gpu, eptr_on_gpu);
+	thrust::scatter_if(x_on_gpu, x_on_gpu + onGPU->newNumEdges, v_on_gpu, f_on_gpu, eptr_on_gpu);
 	cudaDeviceSynchronize(); 
-	//9.d.2.
-	//sum 1 to all to pick up the next
-	thrust::transform(eptr_on_gpu, eptr_on_gpu + onGPU->newNumVertices, eptr_on_gpu, plus1());
-	cudaDeviceSynchronize(); 
-	//set edgeptr of 0 equal to 0.
-	cudaMemset(onGPU->edgePtr, 0, sizeof(unsigned int));
-	cudaDeviceSynchronize(); 
+	
 #ifdef PEDANTIC
 	std::cout << "new edge ptr" << std::endl;
 	debug_device_ptr(onGPU->edgePtr, onGPU->newNumVertices);
@@ -831,24 +821,4 @@ void rebuildEdgePtr(DatastructuresOnGpu* onGPU) {
 
 }
 
-void rebuildVertices(DatastructuresOnGpu* onGPU) {
-	thrust::device_ptr<unsigned int>
-		v_on_gpu(onGPU->vertices),
-		x_on_gpu(onGPU->X);
-
-
-	fill << < grid(onGPU->newNumVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->X, 1, onGPU->newNumVertices);
-	cudaDeviceSynchronize(); 
-
-	thrust::exclusive_scan(x_on_gpu, x_on_gpu + onGPU->newNumVertices, v_on_gpu);
-	cudaDeviceSynchronize(); 
-
-#ifdef PEDANTIC
-	std::cout << "new vertices (" << onGPU->newNumVertices << ") :" << std::endl;
-	debug_device_ptr(onGPU->vertices, onGPU->newNumVertices);
-#endif
-
-
-
-}
 

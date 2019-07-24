@@ -1,6 +1,6 @@
 #pragma once
 #include "Graph.h"
-#include "CompactGraph.h"
+#include "ExpandedGraph.h"
 #include "DataStructureOnGpu.h"
 
 #include "cuda_runtime.h"
@@ -21,13 +21,13 @@
 
 long long int mst(Graph &g, std::vector<Edge> &mst_resul);
 
-long long int mst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result);
+long long int mst(ExpandedGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result);
 
 long long int mst(DatastructuresOnGpu* onGPU);
 
 long long int verifyMst(Graph &g, std::vector<Edge> &mst_resul);
 
-long long int verifyMst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result);
+long long int verifyMst(ExpandedGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result);
 
 long long int verifyMst(DatastructuresOnGpu* onGPU);
 

@@ -2,7 +2,7 @@
 #include <string>
 #include "Graph.h"
 
-class CompactGraph
+class ExpandedGraph
 {
 private:
 
@@ -14,9 +14,9 @@ public:
 	std::vector<unsigned int>weights;
 	std::vector<unsigned int>edgesIds;
 
-	CompactGraph(std::vector<std::vector<int>> weightMatrix);
-	CompactGraph(Graph &g);
-	~CompactGraph();
+	ExpandedGraph(std::vector<std::vector<int>> weightMatrix);
+	ExpandedGraph(Graph &g);
+	~ExpandedGraph();
 
 	void print();
 };

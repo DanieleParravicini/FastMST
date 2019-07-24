@@ -55,7 +55,7 @@
     <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v140</PlatformToolset>
@@ -271,7 +271,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="CompactGraph.h" />
+    <ClInclude Include="ExpandedGraph.h" />
     <ClInclude Include="DataStructureOnGpu.h" />
     <ClInclude Include="Graph.h" />
     <ClInclude Include="mst.h" />
@@ -281,7 +281,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="UVcell.cuh" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CompactGraph.cpp" />
+    <ClCompile Include="ExpandedGraph.cpp" />
     <ClCompile Include="Graph.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mst.cpp" />
