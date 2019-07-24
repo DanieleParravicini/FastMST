@@ -99,8 +99,6 @@ __global__ void replaceTillFixedPointInShared(unsigned int * S, unsigned int n) 
 
 }
 
-
-
 __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n , unsigned int maxShared) {
 	//the shared memory is used as a cache
 	//first maxShared items are stored in shared memory instead of global memory
@@ -161,15 +159,43 @@ __global__ void replaceTillFixedPoint(unsigned int * S, unsigned int n , unsigne
 	}
 
 }
-__global__ void loadNVE(NVEcell * NVE, unsigned int* v, unsigned int * e, unsigned int *w, unsigned int n) {
-	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 
-	if (idx < n) {
-		NVE[idx].setSource(v[idx]);
-		NVE[idx].setDestination(e[idx]);
-		NVE[idx].setWeight(w[idx]);
-		//printf("v %d e %d w %d : result %d", v[idx], e[idx], w[idx], NVE[idx].cell);
+__global__ void loadNVE(NVEcell * NVE, unsigned int* v, unsigned int * e, unsigned int *w, unsigned int n) {
+	
+	int pos;
+	int items_per_thread = (n + blockDim.x - 1) / blockDim.x;
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+		if (pos < n) {
+			NVE[pos].setSource(v[pos]);
+		}
 	}
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+		if (pos < n) {
+			NVE[pos].setDestination(e[pos]);
+		}
+	}
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+		if (pos < n) {
+			NVE[pos].setWeight(w[pos]);
+		}
+	}
+
+}
+__global__ void loadNVEsingle(NVEcell * NVE, unsigned int* v, unsigned int * e, unsigned int *w, unsigned int n) {
+
+	int pos = blockDim.x * blockIdx.x + threadIdx.x;
+	
+	if (pos < n) {
+		NVE[pos].setSource(v[pos]);
+		NVE[pos].setDestination(e[pos]);
+		NVE[pos].setWeight(w[pos]);
+	}
+
+
 }
 
 __global__ void unloadNVE(NVEcell * NVE, unsigned int* v, unsigned int * e, unsigned int *w, unsigned int n) {
@@ -185,7 +211,6 @@ __global__ void unloadNVE(NVEcell * NVE, unsigned int* v, unsigned int * e, unsi
 
 
 __global__ void mark_differentUV(unsigned int* flag, unsigned int* v, unsigned int* e, unsigned int n) {
-	//TODO: consider go with vertex indeces [1, n+1].
 	int idx = blockDim.x * blockIdx.x + threadIdx.x;
 	if (idx == 0) {
 		//in case of zero it's enough not to be a self loop
@@ -225,6 +250,7 @@ struct minus1 : public thrust::unary_function<unsigned int, unsigned int>
 		return x - 1;
 	}
 };
+
 struct plus1 : public thrust::unary_function<unsigned int, unsigned int>
 {
 	__host__ __device__
@@ -235,85 +261,226 @@ struct plus1 : public thrust::unary_function<unsigned int, unsigned int>
 	}
 };
 
-struct less_than : public thrust::less<NVEcell>
-{
-	__host__ __device__
-		bool operator()(NVEcell a, NVEcell b)
-	{
+__global__ void loadUV(UVcell* UV, unsigned int* e, unsigned int* w, unsigned int* id, unsigned int n) {
+	int pos;
+	int items_per_thread = (n + blockDim.x - 1) / blockDim.x;
 
-		return a.cell < b.cell;
+	for (int i = 0; i < items_per_thread ; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+		if (pos < n) {
+			UV[pos].setDestination(e[pos]);
+		}
 	}
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+		if (pos < n) {
+			UV[pos].setWeight(w[pos]);
+		}
+	}
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = threadIdx.x*items_per_thread + i;
+		if (pos < n) {
+			UV[pos].setID(id[pos]);
+		}
+	}
+}
+
+__global__ void loadUVsingle(UVcell* UV, unsigned int* e, unsigned int* w, unsigned int* id, unsigned int n) {
+	int pos = blockDim.x* blockIdx.x + threadIdx.x;
+
+
+	if (pos < n) {
+		UV[pos].setDestination(e[pos]);
+		
+		UV[pos].setWeight(w[pos]);
+		
+		UV[pos].setID(id[pos]);
+	}
+	
+}
+
+struct minimum_UV_cell : public thrust::minimum<UVcell>
+{
+	__host__ __device__ UVcell operator()(const UVcell &lhs, const UVcell &rhs) {
+		
+		return lhs.UW < rhs.UW ? lhs : rhs;
+	}
+
 };
 
+int blockRounder(int block) {
+	return ((block + BLOCK_SIZE - 1 ) / BLOCK_SIZE)*BLOCK_SIZE;
+}
 
 /// on X in position pointed by edgePtr[src] we can obtain the min couple (weight, dest) for that src vertex.
 void minOutgoingEdge(DatastructuresOnGpu* onGPU) {
+	thrust::device_ptr<unsigned int > f_on_gpu(onGPU->F);
+	thrust::device_ptr<UVcell> uv_on_gpu((UVcell*)onGPU->NVE);
 
-	fill << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->X, onGPU->edges,
-		onGPU->numEdges, createMask(0, VERTEX_SIZE));
-	//or cudaMemcpy(onGPU->X, onGPU->edges, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	#ifdef SYNCH 
- cudaDeviceSynchronize(); 
- #endif
-	fill << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->X, onGPU->weights,
-		onGPU->numEdges, createMask(VERTEX_SIZE, WEIGHT_SIZE), VERTEX_SIZE);
+	cudaMemset(onGPU->NVE, 0, sizeof(NVEcell)* onGPU->numEdges);
 
-#ifdef PEDANTIC
-	std::cout << "X after fill with weights from bit " << VERTEX_SIZE << " to " << VERTEX_SIZE + WEIGHT_SIZE << "; and edge ids from bit 0 to " << VERTEX_SIZE << std::endl;
-	debug_device_ptr(onGPU->X, onGPU->numEdges, VERTEX_SIZE);
-#endif
+	int block_dim = std::min(1024, blockRounder((int)(onGPU->numVertices + 16) / 17));
+
+	loadUVsingle<<< grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >>>((UVcell *) onGPU->NVE, onGPU->edges, onGPU->weights, onGPU->edgeID, onGPU->numEdges);
+
+	cudaDeviceSynchronize(); 
+
 
 	cudaMemset(onGPU->F, 0, sizeof(unsigned int) * onGPU->numEdges);
-	#ifdef SYNCH 
- cudaDeviceSynchronize(); 
- #endif
+	cudaDeviceSynchronize(); 
+
 	mark_edge_ptr << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->edgePtr, onGPU->numVertices);
-	#ifdef SYNCH 
- cudaDeviceSynchronize(); 
- #endif
-	segmentedMinScanInCuda(onGPU->X, onGPU->X, onGPU->F, onGPU->numEdges);
-	#ifdef SYNCH 
- cudaDeviceSynchronize(); 
- #endif
-#ifdef PEDANTIC
-	std::cout << "Source vertex index in vertex list: " << std::endl;
-	debug_device_ptr(onGPU->F, onGPU->numEdges);
-	std::cout << "X after segmented min scan: " << std::endl;
-	debug_device_ptr(onGPU->X, onGPU->numEdges, VERTEX_SIZE);
-#endif
+	cudaDeviceSynchronize(); 
+
+	thrust::inclusive_scan(f_on_gpu, f_on_gpu + onGPU->numEdges, f_on_gpu);
+
+	thrust::equal_to<unsigned int> binary_pred;
+	minimum_UV_cell binary_op;
+
+	thrust::inclusive_scan_by_key(f_on_gpu, f_on_gpu + onGPU->numEdges, uv_on_gpu, uv_on_gpu, binary_pred, binary_op);
+	
+	cudaDeviceSynchronize(); 
+	
 }
 
+__global__ void unloadUV(UVcell* UV, unsigned int* dstV, unsigned int* dstID, unsigned int * dstW, unsigned int* edgePtr, unsigned int numvertices, unsigned int numedges) {
+	int pos;
+	int items_per_thread  = (numvertices + blockDim.x*gridDim.x - 1) / blockDim.x*gridDim.x;
+
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = ( blockIdx.x+ threadIdx.x) * items_per_thread + i;
+		if (pos < numvertices -1 ) {
+			//printf("element : %d value %d \n", pos, edgePtr[pos + 1] - 1);
+
+			dstV[pos] = UV[edgePtr[pos +1 ] - 1].getDestination();
+		}
+		else if (pos == numvertices -1 ) {
+			dstV[pos] = UV[numedges -1].getDestination();
+		}
+
+	}
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = (blockIdx.x + threadIdx.x) * items_per_thread + i;
+		if (pos < numvertices - 1) {
+			dstID[pos] = UV[edgePtr[pos + 1] -1 ].getID();
+		}
+		else if (pos == numvertices -1 ) {
+			dstID[pos] = UV[numedges-1 ].getID();
+		}
+	}
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = (blockIdx.x + threadIdx.x) * items_per_thread + i;
+		if (pos < numvertices - 1) {
+			dstW[pos] = UV[edgePtr[pos + 1] - 1].getWeight();
+		}
+		else if (pos == numvertices -1 ) {
+			dstW[pos] = UV[numedges-1].getWeight();
+		}
+	}
+	
+}
+
+__global__ void unloadUVsingle(UVcell* UV, unsigned int* dstV, unsigned int* dstID, unsigned int * dstW, unsigned int* edgePtr, unsigned int numvertices, unsigned int numedges) {
+	int pos = blockDim.x * blockIdx.x + threadIdx.x;
+
+		if (pos < numvertices - 1) {
+			//printf("element : %d value %d \n", pos, edgePtr[pos + 1] - 1);
+
+			dstV[pos] = UV[edgePtr[pos + 1] - 1].getDestination();
+		}
+		else if (pos == numvertices - 1) {
+			dstV[pos] = UV[numedges - 1].getDestination();
+		}
+
+		if (pos < numvertices - 1) {
+			dstID[pos] = UV[edgePtr[pos + 1] - 1].getID();
+		}
+		else if (pos == numvertices - 1) {
+			dstID[pos] = UV[numedges - 1].getID();
+		}
+
+		if (pos < numvertices - 1) {
+			dstW[pos] = UV[edgePtr[pos + 1] - 1].getWeight();
+		}
+		else if (pos == numvertices - 1) {
+			dstW[pos] = UV[numedges - 1].getWeight();
+		}
+	
+
+}
+
+__global__ void eliminateSelfLoops(UVcell* UV, unsigned int* dstV, unsigned int* dstID, unsigned int * dstW, unsigned int* edgePtr, unsigned int numvertices, unsigned int numedges) {
+	int pos;
+	int items_per_thread = (numvertices + blockDim.x*gridDim.x - 1) / blockDim.x*gridDim.x;
+
+	for (int i = 0; i < items_per_thread; i++) {
+		pos = (blockIdx.x + threadIdx.x) * items_per_thread + i;
+		if (pos < numvertices) {
+
+			int successor = dstV[pos];
+			int successor_of_successor = dstV[successor];
+
+			int weight = dstW[pos];
+			int id = dstID[pos];
+
+			if (pos < successor && pos == successor_of_successor) {
+				successor = pos;
+				weight = 0;
+				id = 1 << 31;
+			}
+
+			dstW[pos] = weight;
+			dstV[pos] = successor;
+			dstID[pos] = id;
+		}
+	}
+}
+
+__global__ void eliminateSelfLoopSingle(UVcell* UV, unsigned int* dstV, unsigned int* dstID, unsigned int * dstW, unsigned int* edgePtr, unsigned int numvertices, unsigned int numedges) {
+	int pos = blockDim.x * blockIdx.x + threadIdx.x;
+	if (pos < numvertices) {
+
+		int successor = dstV[pos];
+		int successor_of_successor = dstV[successor];
+
+		int weight = dstW[pos];
+		int id = dstID[pos];
+
+		if (pos < successor && pos == successor_of_successor) {
+			successor = pos;
+			weight = 0;
+			id = 1 << 31;
+		}
+
+		dstW[pos] = weight;
+		dstV[pos] = successor;
+		dstID[pos] = id;
+	}
+	
+}
 
 void moveMinWeightsAndSuccessor(DatastructuresOnGpu* onGPU) {
-	//we move to S: the couples (W,V) with minimum W. 
+	//we move to F the ids of the selected min outgoing edges
+	//on X we move the weight
+	//on S the destination of the min outgoing edge. 
+	int gridDim = grid(onGPU->numVertices, BLOCK_SIZE);
+	unloadUVsingle <<< gridDim, BLOCK_SIZE >>>((UVcell *)onGPU->NVE, onGPU->S, onGPU->F ,onGPU->X, onGPU->edgePtr, onGPU->numVertices, onGPU->numEdges);
 
-	copyIndirected <<< grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >>>(onGPU->F, onGPU->X, onGPU->edgePtr, onGPU->numVertices, onGPU->numEdges);
-	#ifdef SYNCH 
- cudaDeviceSynchronize(); 
- #endif
-
-#ifdef PEDANTIC
-	std::cout << "====================== Move min weights and successor ====================" << std::endl;
-	std::cout << "X after segmented min scan:  (w,v)" << std::endl;
-	debug_device_ptr(onGPU->F, onGPU->numEdges, VERTEX_SIZE);
-	std::cout << "EdgePtr " << std::endl;
-	debug_device_ptr(onGPU->edgePtr, onGPU->numVertices);
-#endif
-#if defined(PEDANTIC) || defined(DEBUG) 
-	std::cout << "Min outgoing edge for each node (in F) (w,v)" << std::endl;
-	debug_device_ptr(onGPU->F, onGPU->numVertices, VERTEX_SIZE);
-#endif
-	//eliminate cycles in s[s[i]] = i;
-	//unpack weights and outgoing edge in X, S.
-	// at the same time perform eliminate cycles S[S[i]] = i
-	//move successors and weight in S and X respectively.
-	// S[S[i]] = i are addressed
-	moveWeightsAndSuccessors << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->F, onGPU->X, onGPU->S, onGPU->numVertices);
-	#ifdef SYNCH 
 	cudaDeviceSynchronize(); 
-	#endif
-}
 
+	//we have to eliminate cycles in s[s[i]] = i;
+	//unpack weights and outgoing edge in X, S respectively .
+	eliminateSelfLoopSingle <<< gridDim, BLOCK_SIZE >> >((UVcell *)onGPU->NVE, onGPU->S, onGPU->F, onGPU->X, onGPU->edgePtr, onGPU->numVertices, onGPU->numEdges);
+	#if defined(PEDANTIC) || defined(DEBUG) 
+
+	#endif
+	
+}
 
 
 void computeCosts(DatastructuresOnGpu* onGPU) {
@@ -346,6 +513,17 @@ void computeCosts(DatastructuresOnGpu* onGPU) {
 	onGPU->cost += deltaCosts;
 }
 
+void saveMinOutgoingEdges(DatastructuresOnGpu* onGPU) {
+
+#ifdef PEDANTIC
+	std::cout << "Min edge ids:" << std::endl;
+	debug_device_ptr(onGPU->F, onGPU->numVertices);
+#endif
+
+	cudaMemcpy(onGPU->edgeIDresult + onGPU->savedEdges, onGPU->F, sizeof(unsigned int)*onGPU->numVertices, cudaMemcpyDeviceToDevice);
+	onGPU->savedEdges += onGPU->numVertices;
+}
+
 void buildSuccessor(DatastructuresOnGpu* onGPU) {
 #ifdef PEDANTIC
 	std::cout << "Successor: " << std::endl;
@@ -354,14 +532,14 @@ void buildSuccessor(DatastructuresOnGpu* onGPU) {
 	//compute successor
 
 	if (sizeof(unsigned int) * onGPU->numVertices < onGPU->maxSharedBytes) {
-		int block_dim = std::min(1024, ((int)(onGPU->numVertices + 16) / 17));
+		int block_dim = std::min(1024, blockRounder((int)(onGPU->numVertices + 16) / 17));
 		replaceTillFixedPointInShared << <1, block_dim, sizeof(unsigned int) * onGPU->numVertices >> >(onGPU->S, onGPU->numVertices);
 	}
 	else {
 		unsigned int max_vertex_in_shared = onGPU->maxSharedBytes / sizeof(unsigned int);
 		replaceTillFixedPoint <<<1, 1024,  max_vertex_in_shared* sizeof(unsigned int) >>>(onGPU->S, onGPU->numVertices, max_vertex_in_shared);
 	}
-cudaDeviceSynchronize(); 
+	cudaDeviceSynchronize(); 
 
 #ifdef PEDANTIC
 	std::cout << "Successor after fixed point: " << std::endl;
@@ -385,12 +563,17 @@ void buildSupervertexId(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->S, onGPU->numVertices);
 #endif
 	fill << < grid(onGPU->numVertices, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->vertices, 1, onGPU->numVertices);
-cudaDeviceSynchronize(); 
+	cudaDeviceSynchronize(); 
 	//use exclusive scan so that first element get 0 as original position
 	thrust::exclusive_scan(v_on_gpu, v_on_gpu + onGPU->numVertices, v_on_gpu);
-cudaDeviceSynchronize(); 
+	cudaDeviceSynchronize();
+
+
+
 	//2. order according to successor and move accordingly the array v
 	thrust::sort_by_key(s_on_gpu, s_on_gpu + onGPU->numVertices, v_on_gpu);
+	cudaDeviceSynchronize();
+
 	//3. create a flag that contains 1 in position i , when  supervertex[i-1] != supervertex[i] , 0 otherwise.
 	cudaMemset(onGPU->F, 0, onGPU->numVertices * sizeof(unsigned int));
 	cudaDeviceSynchronize(); 
@@ -435,7 +618,7 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 		s_on_gpu(onGPU->S), v_on_gpu(onGPU->vertices),
 		f_on_gpu(onGPU->F), e_on_gpu(onGPU->edges),
 		w_on_gpu(onGPU->weights), eptr_on_gpu(onGPU->edgePtr),
-		x_on_gpu(onGPU->X);
+		x_on_gpu(onGPU->X), edgeId_on_gpu(onGPU->edgeID);
 	thrust::device_ptr<NVEcell> NVE_on_gpu(onGPU->NVE);
 
 	//1. consider the arrays that describe the edges u-w->v.
@@ -483,14 +666,16 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 	//	 Exploit a stable sort and a perform three different order carrying along a index represented by X.
 	//   as in radix sort go from least signicants bits to most significative bits,
 	//2.a. create index increment.
-	fill << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->X, 1, onGPU->numEdges);
+	fill <<< grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >>>(onGPU->X, 1, onGPU->numEdges);
 	cudaDeviceSynchronize(); 
 	//2.b. create index by accumulating increments: use exclusive since first element has index 0.
 	thrust::exclusive_scan(x_on_gpu, x_on_gpu + onGPU->numEdges, x_on_gpu);
 	cudaDeviceSynchronize(); 
 
 	cudaMemset(onGPU->NVE, 0, onGPU->numEdges* sizeof(NVEcell));
-	loadNVE << <  grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->NVE, onGPU->vertices, onGPU->edges, onGPU->weights, onGPU->numEdges);
+	//int block_dim = std::min(1024, blockRounder((int)(onGPU->numVertices + 16) / 17));
+	loadNVEsingle <<<  grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >>>(onGPU->NVE, onGPU->vertices, onGPU->edges, onGPU->weights, onGPU->numEdges);
+
 
 #ifdef PEDANTIC
 	std::cout << "Keys(X) before ordering" << std::endl;
@@ -501,6 +686,8 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->edges, onGPU->numEdges);
 	std::cout << "Weights" << std::endl;
 	debug_device_ptr(onGPU->weights, onGPU->numEdges);
+	std::cout << "Edges ids:" << std::endl;
+	debug_device_ptr(onGPU->edgeID, onGPU->numEdges);
 #endif
 
 	thrust::sort_by_key(NVE_on_gpu, NVE_on_gpu + onGPU->numEdges, x_on_gpu);
@@ -510,7 +697,10 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 	//								weights[i] < weights[j] 
 	// we have to reorder edges and weights arrays according to index x.
 	//NOTE: nothing has been said about gather values and output possible overlapping.
-	unloadNVE << <  grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->NVE, onGPU->vertices, onGPU->edges, onGPU->weights, onGPU->numEdges);
+	unloadNVE <<<  grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> >(onGPU->NVE, onGPU->vertices, onGPU->edges, onGPU->weights, onGPU->numEdges);
+	thrust::gather(x_on_gpu, x_on_gpu + onGPU->numEdges, edgeId_on_gpu, s_on_gpu);
+	cudaMemcpy(onGPU->edgeID, onGPU->S, onGPU->numEdges* sizeof(unsigned int), cudaMemcpyDeviceToDevice);
+
 
 #ifdef PEDANTIC
 	std::cout << "Keys(X) after ordering source, destination, weights" << std::endl;
@@ -521,7 +711,10 @@ void orderUVW(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->edges, onGPU->numEdges);
 	std::cout << "Weights" << std::endl;
 	debug_device_ptr(onGPU->weights, onGPU->numEdges);
+	std::cout << "Edges ids:" << std::endl;
+	debug_device_ptr(onGPU->edgeID, onGPU->numEdges);
 #endif
+
 }
 
 void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
@@ -529,7 +722,7 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 		s_on_gpu(onGPU->S), v_on_gpu(onGPU->vertices),
 		f_on_gpu(onGPU->F), e_on_gpu(onGPU->edges),
 		w_on_gpu(onGPU->weights), eptr_on_gpu(onGPU->edgePtr),
-		x_on_gpu(onGPU->X);
+		x_on_gpu(onGPU->X), edgeID_on_gpu(onGPU->edgeID);
 
 
 	//8. create Edge, weights
@@ -569,6 +762,8 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	cudaDeviceSynchronize(); 
 	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, e_on_gpu);
 	cudaDeviceSynchronize(); 
+	cudaMemcpy(onGPU->S, onGPU->edgeID, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, edgeID_on_gpu);
 
 #ifdef PEDANTIC
 	std::cout << "new edges (" << onGPU->newNumEdges << ") :" << std::endl;
@@ -576,6 +771,8 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	debug_device_ptr(onGPU->weights, onGPU->newNumEdges);
 	std::cout << "new edges" << std::endl;
 	debug_device_ptr(onGPU->edges, onGPU->newNumEdges);
+	std::cout << "New edge id" << std::endl;
+	debug_device_ptr(onGPU->edgeID, onGPU->newNumEdges);
 #endif
 }
 
@@ -654,3 +851,4 @@ void rebuildVertices(DatastructuresOnGpu* onGPU) {
 
 
 }
+

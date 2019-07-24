@@ -34,7 +34,9 @@ int main(int argc, char ** argv) {
 
 
 	for (; repeatCount > 0; repeatCount--) {
-		long long int cost = mst(g1);
+		std::vector<Edge> edges_mst;
+
+		long long int cost = mst(g1, edges_mst);
 
 		std::cout << "Cost mst boruvska [" << cost << "]" << std::endl;
 	}

@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "NVEcell.cuh"
+#include "UVcell.cuh"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -14,14 +15,20 @@ struct DatastructuresOnGpu {
 	unsigned int* edges = 0;
 	unsigned int numEdges;
 	unsigned int numVertices;
+
 	unsigned int newNumEdges;
 	unsigned int newNumVertices;
+	unsigned int savedEdges;
 
 	unsigned int* X;
 	unsigned int* F;
 	unsigned int* S;
 
+
 	struct NVEcell* NVE;
+
+	unsigned int * edgeID;
+	unsigned int * edgeIDresult;
 	
 	int maxSharedBytes;
 	unsigned long long int cost = 0;

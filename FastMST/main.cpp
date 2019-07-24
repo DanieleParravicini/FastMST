@@ -70,10 +70,16 @@ int main(int argc, char ** argv) {
 	//printForWebgraphviz(g1);
 
 
+	std::vector<Edge> edges_mst;
+	long long int cost1 = mst(g1, edges_mst);
 
-	long long int cost = mst(g1);
+	long long int cost2 = 0;
+	for (Edge e : edges_mst) {
+		cost2 += boost::get(boost::edge_weight, g1, e);
+	}
+	assert(cost2 == cost1);
 
-	std::cout << "Cost mst boruvska [" << cost << "]" << std::endl;
+	std::cout << "Cost mst boruvska [" << cost1 << "]" << std::endl;
 	return 0;
 	
 }

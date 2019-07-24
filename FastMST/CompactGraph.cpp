@@ -2,7 +2,7 @@
 
 //TODO: assumed 1 connected component? in other words that node has always a outgoing edge?
 CompactGraph::CompactGraph(std::vector<std::vector<int>> weightMatrix)
-	:vertices(), edgePtr(), edges(), weights()
+	:vertices(), edgePtr(), edges(), weights(), edgesIds()
 {
 	int edgeCount = 0;
 	for (int src = 0; src < weightMatrix.size(); src++) {
@@ -23,7 +23,7 @@ CompactGraph::CompactGraph(std::vector<std::vector<int>> weightMatrix)
 
 
 CompactGraph::CompactGraph(Graph &g)
-	:vertices(), edgePtr(), edges(), weights()
+	:vertices(), edgePtr(), edges(), weights(), edgesIds()
 {
 	
 	std::vector<unsigned int> map;
@@ -54,7 +54,9 @@ CompactGraph::CompactGraph(Graph &g)
 			this->edges.push_back(*adj);
 			int w = boost::get(weights, res.first);
 			this->weights.push_back(w);
+			this->edgesIds.push_back(edge_cnt);
 			edge_cnt++;
+			
 		}
 		v++;
 	}

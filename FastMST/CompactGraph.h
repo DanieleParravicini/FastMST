@@ -12,6 +12,7 @@ public:
 	int edgesCount = 0;
 	std::vector<unsigned int>edges;
 	std::vector<unsigned int>weights;
+	std::vector<unsigned int>edgesIds;
 
 	CompactGraph(std::vector<std::vector<int>> weightMatrix);
 	CompactGraph(Graph &g);

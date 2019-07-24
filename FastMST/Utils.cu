@@ -129,7 +129,7 @@ __global__ void copyIndirected(unsigned int* dst, unsigned int* src, unsigned in
 	if (idx < n - 1) {
 		dst[idx] = src[ptr[idx + 1] - 1];
 	}
-	else if (idx = n - 1) {
+	else if (idx == n - 1) {
 		dst[idx] = src[m - 1];
 	}
 }

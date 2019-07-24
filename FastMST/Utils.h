@@ -16,6 +16,7 @@
 
 //#define DEBUG
 //#define PEDANTIC
+//#define THRUST_DEBUG
 
 __host__ __device__ unsigned int createMask(int start, int width);
 

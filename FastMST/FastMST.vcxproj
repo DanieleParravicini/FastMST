@@ -55,7 +55,7 @@
     <PlatformToolset>v140</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>MultiByte</CharacterSet>
     <PlatformToolset>v140</PlatformToolset>
@@ -170,7 +170,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Include>
       </Include>
-      <CodeGeneration>compute_20,sm_20</CodeGeneration>
+      <CodeGeneration>compute_20,sm_21</CodeGeneration>
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
     </CudaCompile>
   </ItemDefinitionGroup>
@@ -236,7 +236,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Optimization>O3</Optimization>
-      <CodeGeneration>compute_20,sm_20</CodeGeneration>
+      <CodeGeneration>compute_20,sm_21</CodeGeneration>
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
     </CudaCompile>
   </ItemDefinitionGroup>
@@ -278,6 +278,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <ClInclude Include="mstKernels.cuh" />
     <ClInclude Include="NVEcell.cuh" />
     <ClInclude Include="Utils.h" />
+    <ClInclude Include="UVcell.cuh" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CompactGraph.cpp" />
@@ -337,6 +338,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile Include="mstKernels.cu" />
     <CudaCompile Include="NVEcell.cu" />
     <CudaCompile Include="Utils.cu" />
+    <CudaCompile Include="UVcell.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

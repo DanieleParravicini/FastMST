@@ -2,21 +2,41 @@
 #include "cuda_profiler_api.h"
 
 
-long long int mst(Graph &g) {
+long long int mst(Graph &g, std::vector<Edge> &mst_result) {
+	CompactGraph c(g );
+	
+	unsigned int* array_mst_result = (unsigned int *) malloc(sizeof(unsigned int) * c.vertices.size() * 2);
+	unsigned int length = 0;
 
-	CompactGraph c(g);
-	return mst(c);
+	long long int ret = mst(c, array_mst_result, &length);
 
+	for (int i = 0; i < length; i++) {
+
+		std::vector<unsigned int>::iterator pos = std::lower_bound(c.edgePtr.begin(), c.edgePtr.end(), array_mst_result[i]);
+
+		int s = pos - c.edgePtr.begin();
+		if (pos == c.edgePtr.end() || *pos != array_mst_result[i]){
+			s -= 1;
+		}
+		int d = c.edges[array_mst_result[i]];
+
+		std::pair<Edge, bool> res = boost::edge(s, d, g);
+		assert(res.second);
+		mst_result.push_back(res.first);
+	}
+	free(array_mst_result);
+	return ret;
 }
 
-long long int mst(CompactGraph &g) {
+long long int mst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
+	onGPU.savedEdges = 0;
 	onGPU.numEdges = g.edges.size();
 	onGPU.numVertices = g.vertices.size();
 	long long int res = -1;
-
+	
 	try {
 		//0. obtain max shared memory exploitable per block
 		cudaDeviceGetAttribute(&onGPU.maxSharedBytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
@@ -50,6 +70,15 @@ long long int mst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
+		status = cudaMalloc(&onGPU.edgeID, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		status = cudaMalloc(&onGPU.edgeIDresult, sizeof(unsigned int)*onGPU.numVertices*2);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+		
+		cudaMemcpy(onGPU.edgeID, &g.edgesIds[0], sizeof(unsigned int)*onGPU.numEdges, cudaMemcpyHostToDevice);
 
 		cudaDeviceSynchronize();
 		cudaEvent_t start, stop;
@@ -70,6 +99,18 @@ long long int mst(CompactGraph &g) {
 
 		std::cout << "Time gpu occupied: "<< milliseconds << " [ms]"<< std::endl;
 
+		cudaMemcpy(array_mst_result, onGPU.edgeIDresult, sizeof(unsigned int)* onGPU.savedEdges, cudaMemcpyDeviceToHost);
+		cudaDeviceSynchronize();
+
+		*lenght_array_mst_result = 0;
+		for (int i = 0; i < onGPU.savedEdges; i++) {
+			if (array_mst_result[i] < g.edges.size()) {
+				array_mst_result[*lenght_array_mst_result] = array_mst_result[i];
+				(*lenght_array_mst_result)++;
+			}
+		}
+
+
 		cudaFree(onGPU.vertices);
 		cudaFree(onGPU.edgePtr);
 		cudaFree(onGPU.weights);
@@ -78,6 +119,8 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		cudaFree(onGPU.NVE);
+		cudaFree(onGPU.edgeID);
+		cudaFree(onGPU.edgeIDresult);
 	}
 	catch (cudaError_t err) {
 		std::cout << err;
@@ -89,10 +132,12 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		cudaFree(onGPU.NVE);
+		cudaFree(onGPU.edgeID);
+		cudaFree(onGPU.edgeIDresult);
 
 		throw err;
 	}
-	/*catch (thrust::system_error &e)
+	catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
 		//got some unspecified launch failure?
@@ -107,9 +152,11 @@ long long int mst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		cudaFree(onGPU.NVE);
+		cudaFree(onGPU.edgeID);
+		cudaFree(onGPU.edgeIDresult);
 
 		throw e;
-	}*/
+	}
 
 	return res;
 }
@@ -144,6 +191,7 @@ long long int mst(DatastructuresOnGpu *onGPU) {
 		moveMinWeightsAndSuccessor(onGPU);
 		computeCosts(onGPU);
 		buildSuccessor(onGPU);
+		saveMinOutgoingEdges(onGPU);
 		
 		//3. rebuild compact graph representation for next algorithm iteration.
 		buildSupervertexId(onGPU);
@@ -160,21 +208,43 @@ long long int mst(DatastructuresOnGpu *onGPU) {
 	return onGPU->cost;
 }
 
-long long int verifyMst(Graph &g) {
+long long int verifyMst(Graph &g, std::vector<Edge> &mst_result) {
 
 	CompactGraph c(g);
-	return verifyMst(c);
 
+	unsigned int* array_mst_result = (unsigned int *)malloc(sizeof(unsigned int) * c.vertices.size() * 2);
+	unsigned int length = 0;
+	
+	long long int ret = verifyMst(c, array_mst_result, &length);
+	
+	for (int i = 0; i < length; i++) {
+
+		std::vector<unsigned int>::iterator pos = std::lower_bound(c.edgePtr.begin(), c.edgePtr.end(), array_mst_result[i]);
+
+		int s = pos - c.edgePtr.begin();
+		if (pos == c.edgePtr.end() || *pos != array_mst_result[i]) {
+			s -= 1;
+		}
+		int d = c.edges[array_mst_result[i]];
+
+		std::pair<Edge, bool> res = boost::edge(s, d, g);
+		assert(res.second);
+		mst_result.push_back(res.first);
+	}
+
+	free(array_mst_result);
+	return ret;
 }
 
-long long int verifyMst(CompactGraph &g) {
+long long int verifyMst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result) {
 	cudaError_t status;
 	DatastructuresOnGpu onGPU;
 	onGPU.cost = 0;
+	onGPU.savedEdges = 0;
 	onGPU.numEdges = g.edges.size();
 	onGPU.numVertices = g.vertices.size();
 	long long int res = -1;
-
+	
 	try {
 		//0. obtain max shared memory exploitable per block
 		cudaDeviceGetAttribute(&onGPU.maxSharedBytes, cudaDevAttrMaxSharedMemoryPerBlock, 0);
@@ -208,6 +278,16 @@ long long int verifyMst(CompactGraph &g) {
 		if (status != cudaError::cudaSuccess)
 			throw status;
 
+		status = cudaMalloc(&onGPU.edgeID, sizeof(unsigned int)*onGPU.numEdges);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		status = cudaMalloc(&onGPU.edgeIDresult, sizeof(unsigned int)*onGPU.numVertices * 2);
+		if (status != cudaError::cudaSuccess)
+			throw status;
+
+		cudaMemcpy(onGPU.edgeID, &g.edgesIds[0] , sizeof(unsigned int)* onGPU.numEdges, cudaMemcpyHostToDevice);
+
 		cudaEvent_t start, stop;
 		cudaEventCreate(&start);
 		cudaEventCreate(&stop);
@@ -227,6 +307,20 @@ long long int verifyMst(CompactGraph &g) {
 
 		std::cout << "Time gpu occupied: " << milliseconds << " [ms]" << std::endl;
 
+		cudaMemcpy(array_mst_result, onGPU.edgeIDresult, sizeof(unsigned int)* onGPU.savedEdges, cudaMemcpyDeviceToHost);
+
+		long long unsigned cost;
+		*lenght_array_mst_result = 0;
+		for (int i = 0 ; i < onGPU.savedEdges; i++) {
+			if (array_mst_result[i] < g.edges.size()) {
+				array_mst_result[*lenght_array_mst_result] = array_mst_result[i];
+				*lenght_array_mst_result += 1;
+				cost += g.weights[array_mst_result[i]];
+			}
+		}
+		
+		assert(cost == res);
+
 		cudaFree(onGPU.vertices);
 		cudaFree(onGPU.edgePtr);
 		cudaFree(onGPU.weights);
@@ -235,6 +329,8 @@ long long int verifyMst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		cudaFree(onGPU.NVE);
+		cudaFree(onGPU.edgeID);
+		cudaFree(onGPU.edgeIDresult);
 
 	}
 	catch (cudaError_t err) {
@@ -247,12 +343,15 @@ long long int verifyMst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		cudaFree(onGPU.NVE);
+		cudaFree(onGPU.edgeID);
+		cudaFree(onGPU.edgeIDresult);
 
 		throw err;
 	}
 	catch (thrust::system_error &e)
 	{
 		std::cerr << "CUDA error:" << e.what() << std::endl;
+		
 		//got some unspecified launch failure?
 		//cause could be a watchdog inserted by windows OS
 		// for additional details and workaround follow the next link:
@@ -265,6 +364,8 @@ long long int verifyMst(CompactGraph &g) {
 		cudaFree(onGPU.F);
 		cudaFree(onGPU.S);
 		cudaFree(onGPU.NVE);
+		cudaFree(onGPU.edgeID);
+		cudaFree(onGPU.edgeIDresult);
 
 		throw e;
 	}
@@ -292,8 +393,8 @@ long long int verifyMst(DatastructuresOnGpu* onGPU) {
 		onGPU->printForWebgraphviz();
 #endif
 
-		int curr_cost = onGPU->cost;
-		int currnumVertices = onGPU->numVertices;
+		unsigned long long int curr_cost = onGPU->cost;
+		unsigned int currnumVertices = onGPU->numVertices;
 
 		Graph g;
 		toGraph(g, onGPU);
@@ -303,7 +404,7 @@ long long int verifyMst(DatastructuresOnGpu* onGPU) {
 	
 		boost::kruskal_minimum_spanning_tree(g, std::inserter(edges, edges.end()));
 
-		int costSubProblem = 0;
+		unsigned long long int costSubProblem = 0;
 		for (Edge e : edges) {
 			costSubProblem += boost::get(boost::edge_weight, g, e);
 		}
@@ -316,6 +417,7 @@ long long int verifyMst(DatastructuresOnGpu* onGPU) {
 		moveMinWeightsAndSuccessor(onGPU);
 		computeCosts(onGPU);
 		buildSuccessor(onGPU);
+		saveMinOutgoingEdges(onGPU);
 
 		//3. rebuild compact graph representation for next algorithm iteration.
 		buildSupervertexId(onGPU);

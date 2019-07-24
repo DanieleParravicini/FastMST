@@ -6,8 +6,6 @@ __host__ __device__ bool operator < (const NVEcell &lhs, const NVEcell &rhs)
 	return (lhs.cell < rhs.cell);
 };
 
-
-
 __host__ __device__ void NVEcell::setSource(unsigned int s) {
 	long long tmp = s;
 	tmp <<= WEIGHT_SIZE + VERTEX_SIZE;
@@ -40,12 +38,8 @@ __host__ __device__ unsigned int NVEcell::getDestination() {
 }
 
 __host__ __device__ unsigned int NVEcell::getWeight() {
-	unsigned int tmp = cell;
+	unsigned int tmp = (unsigned int) cell;
 	int mask = createMask(0, WEIGHT_SIZE);
 
 	return tmp & mask;
 }
-
-
-
-

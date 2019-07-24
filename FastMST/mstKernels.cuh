@@ -3,6 +3,7 @@
 
 #include "DataStructureOnGpu.h"
 #include "NVEcell.cuh"
+#include "UVcell.cuh"
 #include "Utils.h"
 
 #include <algorithm>
@@ -25,6 +26,7 @@ void minOutgoingEdge(DatastructuresOnGpu* onGPU);
 void moveMinWeightsAndSuccessor(DatastructuresOnGpu* onGPU);
 void computeCosts(DatastructuresOnGpu* onGPU);
 void buildSuccessor(DatastructuresOnGpu* onGPU);
+void saveMinOutgoingEdges(DatastructuresOnGpu* onGPU);
 
 void orderUVW(DatastructuresOnGpu*onGPU);
 void rebuildEdgePtr(DatastructuresOnGpu* onGPU);

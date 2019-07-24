@@ -19,15 +19,15 @@
 #include "mstKernels.cuh"
 
 
-long long int mst(Graph &g);
+long long int mst(Graph &g, std::vector<Edge> &mst_resul);
 
-long long int mst(CompactGraph &g);
+long long int mst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result);
 
 long long int mst(DatastructuresOnGpu* onGPU);
 
-long long int verifyMst(Graph &g);
+long long int verifyMst(Graph &g, std::vector<Edge> &mst_resul);
 
-long long int verifyMst(CompactGraph &g);
+long long int verifyMst(CompactGraph &g, unsigned int * array_mst_result, unsigned int * lenght_array_mst_result);
 
 long long int verifyMst(DatastructuresOnGpu* onGPU);
 
