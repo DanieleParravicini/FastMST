@@ -305,7 +305,7 @@ long long int verifyMst(ExpandedGraph &g, unsigned int * array_mst_result, unsig
 		float milliseconds = 0;
 		cudaEventElapsedTime(&milliseconds, start, stop);
 
-		std::cout << "Time gpu occupied: " << milliseconds << " [ms]" << std::endl;
+		std::cout << ";" << milliseconds ;
 
 		cudaMemcpy(array_mst_result, onGPU.edgeIDresult, sizeof(unsigned int)* onGPU.savedEdges, cudaMemcpyDeviceToHost);
 

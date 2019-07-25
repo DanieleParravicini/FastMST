@@ -37,7 +37,7 @@ int main(int argc, char ** argv) {
 
 		long long int cost = mst(g1, edges_mst);
 
-		std::cout << "Cost mst boruvska [" << cost << "]" << std::endl;
+		//std::cout << "Cost mst boruvska [" << cost << "]" << std::endl;
 	}
 	return 0;
 
