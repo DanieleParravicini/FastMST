@@ -85,7 +85,12 @@ void generateRandom(int nr_vertices, int nr_edges , Graph& g) {
 	// https://valelab4.ucsf.edu/svn/3rdpartypublic/boost/libs/graph_parallel/doc/html/rmat_generator.html
 	// the four floating point numbers that follows: a, b, c, and d represent the probability that a generated edge 
 	// is placed of each of the 4 quadrants of the partitioned adjacency matrix
-	g = Graph(RMATGen(gen, nr_vertices,nr_edges, 0.57, 0.19, 0.19, 0.05), RMATGen(), nr_vertices);
+	float prob_first = 0.25;
+	float prob_second = 0.25;
+	float prob_third = 0.25;
+	float prob_fourth = 0.25;
+
+	g = Graph(RMATGen(gen, nr_vertices,nr_edges, prob_first, prob_second, prob_third, prob_fourth), RMATGen(), nr_vertices);
 	//
 	//g = Graph(ERGen(gen, nr_vertices, 0.25), ERGen(), nr_vertices);
 	std::pair<Graph::edge_iterator, Graph::edge_iterator> iterators = boost::edges(g);

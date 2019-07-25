@@ -708,7 +708,7 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 		s_on_gpu(onGPU->S), v_on_gpu(onGPU->vertices),
 		f_on_gpu(onGPU->F), e_on_gpu(onGPU->edges),
 		w_on_gpu(onGPU->weights), eptr_on_gpu(onGPU->edgePtr),
-		x_on_gpu(onGPU->X), edgeID_on_gpu(onGPU->edgeID);
+		x_on_gpu(onGPU->X), edgeID_on_gpu(onGPU->edgeID), nve_on_gpu( (unsigned int*) onGPU->NVE);
 
 
 	//8. create Edge, weights
@@ -742,23 +742,30 @@ void rebuildEdgeWeights(DatastructuresOnGpu* onGPU) {
 	//we exploit a version of scatter that expect a stencil.
 	//8.d. move weights
 	//since input data and output can't reside on the same memory area we move them temporarily to S
-	cudaMemcpy(onGPU->S, onGPU->weights, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, w_on_gpu);
+	fill << < grid(onGPU->numEdges, BLOCK_SIZE), BLOCK_SIZE >> > ((unsigned int*)onGPU->NVE, 1, onGPU->numEdges);
+	thrust::exclusive_scan(nve_on_gpu, nve_on_gpu + onGPU->numEdges, nve_on_gpu);
+
+	thrust::scatter_if(nve_on_gpu, nve_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, s_on_gpu);
+
+	cudaMemcpy(onGPU->X, onGPU->weights, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	thrust::gather(s_on_gpu, s_on_gpu + onGPU->newNumEdges, x_on_gpu, w_on_gpu);
 	//8.e. move destination vertices
-	//since input data and output can't reside on the same memory area we mve them temporarily to S
-	cudaMemcpy(onGPU->S, onGPU->edges, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, e_on_gpu);
+	//since input data and output can't reside on the same memory area we mve them temporarily to 
+
+	cudaMemcpy(onGPU->X, onGPU->edges, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	thrust::gather(s_on_gpu, s_on_gpu + onGPU->newNumEdges, x_on_gpu, e_on_gpu);
 	cudaDeviceSynchronize(); 
 	//8.f. move edge IDs
 	//since input data and output can't reside on the same memory area we mve them temporarily to S
-	cudaMemcpy(onGPU->S, onGPU->edgeID, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, edgeID_on_gpu);
+	cudaMemcpy(onGPU->X, onGPU->edgeID, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	thrust::gather(s_on_gpu, s_on_gpu + onGPU->newNumEdges, x_on_gpu, edgeID_on_gpu);
 	cudaDeviceSynchronize();
+
 	//8.g. move source
 	//since input data and output can't reside on the same memory area we mve them temporarily to S
-	cudaMemcpy(onGPU->S, onGPU->vertices, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
-	thrust::scatter_if(s_on_gpu, s_on_gpu + onGPU->numEdges, x_on_gpu, f_on_gpu, v_on_gpu);
-
+	cudaMemcpy(onGPU->X, onGPU->vertices, sizeof(unsigned int)* onGPU->numEdges, cudaMemcpyDeviceToDevice);
+	thrust::gather(s_on_gpu, s_on_gpu + onGPU->newNumEdges, x_on_gpu, v_on_gpu);
+	cudaDeviceSynchronize();
 #ifdef PEDANTIC
 	std::cout << "new edges (" << onGPU->newNumEdges << ") :" << std::endl;
 	std::cout << "new sources" << std::endl;
