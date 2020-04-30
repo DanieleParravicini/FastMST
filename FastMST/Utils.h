@@ -10,7 +10,7 @@
 #include <thrust\scan.h>
 #include <thrust\sort.h>
 
-#define BLOCK_SIZE  32
+#define BLOCK_SIZE  64
 #define WEIGHT_SIZE 10
 #define VERTEX_SIZE 22
 

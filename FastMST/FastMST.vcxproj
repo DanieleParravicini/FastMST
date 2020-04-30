@@ -236,7 +236,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <Optimization>O3</Optimization>
-      <CodeGeneration>compute_20,sm_21</CodeGeneration>
+      <CodeGeneration>compute_30,sm_30</CodeGeneration>
       <GenerateRelocatableDeviceCode>true</GenerateRelocatableDeviceCode>
     </CudaCompile>
   </ItemDefinitionGroup>

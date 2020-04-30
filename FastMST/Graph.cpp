@@ -136,13 +136,13 @@ void generateRandom(int nr_vertices, int nr_edges , Graph& g) {
 
 void printForWebgraphviz(Graph &g) {
 	//small graph can be plotted at http://www.webgraphviz.com/
-	WeightMap weights = boost::get(boost::edge_weight, g);
+
 	std::cout << "graph { " << std::endl;
 	std::pair<Graph::edge_iterator, Graph::edge_iterator> iterators = boost::edges(g);
 	//substitute
 	for (; iterators.first != iterators.second; ++iterators.first) {
 	
-			std::cout << iterators.first->m_source << " -- " << iterators.first->m_target << "[ label=\"" << boost::get(boost::edge_weight_t(), g, *iterators.first) << "\"];";// << std::endl;
+			std::cout << iterators.first->m_source << " -- " << iterators.first->m_target << "[ label=\"" << boost::get(boost::edge_weight_t(), g, *iterators.first) << "\"]"<< std::endl;
 		
 	}
 

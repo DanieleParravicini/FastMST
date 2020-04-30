@@ -68,16 +68,26 @@ int main(int argc, char ** argv) {
 
 
 
-	//printForWebgraphviz(g1);
+	printForWebgraphviz(g1);
 
 
 	std::vector<Edge> edges_mst;
 	long long int cost1 = mst(g1, edges_mst);
 
+	
+	
+
+
+	
+	std::cout << "graph { " << std::endl;
+
 	long long int cost2 = 0;
 	for (Edge e : edges_mst) {
-		cost2 += boost::get(boost::edge_weight, g1, e);
+		cost2 += boost::get(boost::edge_weight, g1, e); 
+		std::cout << e.m_source << " -- " << e.m_target << "[ label=\"" << boost::get(boost::edge_weight_t(), g1, e) << "\" color=\"red\" ]" << std::endl;
+
 	}
+	std::cout << std::endl << "}" << std::endl;
 	assert(cost2 == cost1);
 
 	std::cout << "Cost mst boruvska [" << cost1 << "]" << std::endl;
