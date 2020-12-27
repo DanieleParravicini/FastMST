@@ -2,6 +2,16 @@
 Project for Advanced Algorithm and Parallel Programming course of Academic Year 2018-2019
 
 The project implements using Nvidia CUDA the parallel algorithm proposed in [Fast minimum spanning tree for large graphs on the GPU](https://dl.acm.org/doi/10.1145/1572769.1572796) to solve the minimum spanning tree (MST) problem.
+The MST problem consists in determining a subset of arcs that allow to connect all the nodes of a given graph while miniizing the total sum of cost for all the selected arcs.
+
+
+
+| Example                                     |
+|---------------------------------------------|
+| ![example mst](./Results/example_graph.png) |
+| The MST consist of arcs higlighted in non black edges. |
+|Red and blue edges result from the 1st and the 2nd iteration of the algorithm |
+
 
 The solution was developed using Microsoft Visual Studio 2015 and was tested both on:
 - [NVIDIA GeForce GT 520 with 1 GB DDR3](https://www.techpowerup.com/gpu-specs/geforce-gt-520.c285)
@@ -23,4 +33,7 @@ The Visual Studio solution consist of 4 projects and is structured as follows:
 
 - [generateDimacsGraph](./generateDimacsGraph), generates a [random graph using BOOST library](https://www.boost.org/doc/libs/1_53_0/libs/graph_parallel/doc/html/scalable_rmat_generator.html).
 
-The directory [Results](./Results) contained the outputs of the runs and a the fianl presentation.
+The directory [Results](./Results) contains the outputs of the runs and a the final presentation.
+
+![results](./Results/time_vs_nodes.png)
+
